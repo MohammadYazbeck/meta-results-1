@@ -1,0 +1,137 @@
+import dynamic from "next/dynamic";
+
+import { CampaignBudgetPanel } from "@/components/campaign-budget-panel";
+import { CampaignDetailHeader } from "@/components/campaign-detail-header";
+import { ErrorPanel } from "@/components/ui/error-panel";
+import { HierarchyBadge } from "@/components/ui/hierarchy-badge";
+import { panelClassName } from "@/components/ui/class-names";
+import { PageScene } from "@/components/ui/page-scene";
+import { SectionHeading } from "@/components/ui/section-heading";
+import { isAdminAuthenticated } from "@/lib/admin-auth";
+import { getCampaignBudget } from "@/lib/budget-store";
+import {
+  getCampaignDetailData,
+  getDefaultDateRange,
+  getEmptyCampaignDetailData,
+  getSuggestedRangeLabel,
+  sanitizeDateRange,
+  type CampaignDetailData,
+} from "@/lib/meta";
+import { cn } from "@/lib/utils";
+
+const CampaignHierarchy = dynamic(
+  () =>
+    import("@/components/campaign-hierarchy").then(
+      (module) => module.CampaignHierarchy,
+    ),
+  {
+    loading: () => (
+      <div className="px-4 py-5 text-sm text-muted sm:px-6">
+        جاري تحميل تفاصيل الأداء...
+      </div>
+    ),
+  },
+);
+
+type PageProps = {
+  params: Promise<{ campaignId: string }>;
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
+};
+
+function getSingleValue(value?: string | string[]) {
+  return Array.isArray(value) ? value[0] : value;
+}
+
+function buildWallet(totalPaid: number, totalSpent: number) {
+  return Math.round((totalPaid - totalSpent) * 100) / 100;
+}
+
+export default async function CampaignDetailPage({
+  params,
+  searchParams,
+}: PageProps) {
+  const { campaignId } = await params;
+  const resolvedSearchParams = (await searchParams) ?? {};
+  const fallbackRange = getDefaultDateRange();
+  const range = sanitizeDateRange(
+    getSingleValue(resolvedSearchParams.start) ?? fallbackRange.start,
+    getSingleValue(resolvedSearchParams.end) ?? fallbackRange.end,
+  );
+  const isAdmin = await isAdminAuthenticated();
+  const budgetRecord = await getCampaignBudget(campaignId);
+  let errorMessage: string | null = null;
+  let campaign: CampaignDetailData;
+
+  try {
+    campaign = await getCampaignDetailData(campaignId, range);
+  } catch (error) {
+    errorMessage =
+      error instanceof Error
+        ? error.message
+        : "Unexpected error while loading campaign data.";
+    campaign = getEmptyCampaignDetailData(campaignId, range);
+  }
+
+  const totalPaid = budgetRecord.totalPaid ?? 0;
+  const wallet = buildWallet(totalPaid, campaign.totals.spend);
+  const rangeLabel = getSuggestedRangeLabel(campaign.range);
+  const totalAds = campaign.adSets.reduce(
+    (sum, adSet) => sum + adSet.ads.length,
+    0,
+  );
+
+  return (
+    <main className="mx-auto w-full max-w-detail px-3 py-4 sm:px-4 sm:py-6 lg:px-7 lg:py-8">
+      <PageScene variant="campaign">
+        <CampaignDetailHeader
+          campaign={campaign}
+          isAdmin={isAdmin}
+          rangeLabel={rangeLabel}
+          totalAds={totalAds}
+          totalPaid={totalPaid}
+          wallet={wallet}
+        />
+
+        {errorMessage ? (
+          <ErrorPanel
+            message={errorMessage}
+            title="يتم عرض التقرير حالياً بدون البيانات المباشرة."
+          />
+        ) : null}
+
+        <section className="grid gap-6 lg:gap-7">
+          <section className={cn(panelClassName, "overflow-hidden")}> 
+            <SectionHeading
+              action={
+                <div className="flex flex-col gap-2 sm:items-end">
+                  <p className="m-0 text-sm text-muted">
+                    {new Intl.NumberFormat("en-US").format(campaign.adSets.length)}
+                    {" "}مجموعة إعلانية / {new Intl.NumberFormat("en-US").format(totalAds)}
+                    {" "}إعلان
+                  </p>
+                  <div className="flex flex-wrap gap-2 sm:justify-end">
+                    <HierarchyBadge variant="campaign">Campaign</HierarchyBadge>
+                    <HierarchyBadge variant="adSet">Ad Set</HierarchyBadge>
+                    <HierarchyBadge variant="ad">Ad</HierarchyBadge>
+                  </div>
+                </div>
+              }
+              eyebrow="الأداء"
+              title="المجموعات والإعلانات"
+            />
+
+            <CampaignHierarchy adSets={campaign.adSets} />
+          </section>
+
+          {isAdmin ? (
+            <CampaignBudgetPanel
+              campaignId={campaign.campaignId}
+              payments={budgetRecord.payments}
+              range={campaign.range}
+            />
+          ) : null}
+        </section>
+      </PageScene>
+    </main>
+  );
+}

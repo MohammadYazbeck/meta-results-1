@@ -1,0 +1,68 @@
+:root {
+  --bg: #f5f5f7;
+  --bg-soft: rgba(255, 255, 255, 0.78);
+  --card: rgba(255, 255, 255, 0.72);
+  --card-strong: #111214;
+  --line: rgba(17, 17, 19, 0.08);
+  --line-strong: rgba(17, 17, 19, 0.14);
+  --text: #111113;
+  --muted: #6e6e73;
+  --accent: #0071e3;
+  --accent-soft: rgba(0, 113, 227, 0.1);
+  --success: #1d9c58;
+  --shadow:
+    0 24px 60px rgba(15, 23, 42, 0.06),
+    0 6px 18px rgba(15, 23, 42, 0.04);
+  --font-body: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI",
+    Tahoma, Arial, sans-serif;
+  --font-display: -apple-system, BlinkMacSystemFont, "SF Pro Display",
+    "Segoe UI", Tahoma, Arial, sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  background:
+    radial-gradient(circle at top right, rgba(0, 113, 227, 0.08), transparent 30%),
+    radial-gradient(circle at bottom left, rgba(17, 17, 19, 0.05), transparent 32%),
+    linear-gradient(180deg, #fbfbfd 0%, #f4f4f7 100%);
+  min-height: 100%;
+}
+
+body {
+  color: var(--text);
+  direction: rtl;
+  font-family: var(--font-body), sans-serif;
+  margin: 0;
+  min-height: 100vh;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+}
+
+body,
+input,
+button,
+textarea,
+select {
+  direction: rtl;
+  font: inherit;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+::selection {
+  background: rgba(0, 113, 227, 0.14);
+}
+
+button {
+  cursor: pointer;
+}
+
+svg {
+  display: block;
+}
