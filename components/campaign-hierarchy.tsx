@@ -22,11 +22,11 @@ function formatInteger(value: number) {
 function MetricPill({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex min-w-0 flex-col gap-1.5 rounded-[20px] border border-black/[0.05] bg-white/92 px-3.5 py-3.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.96)]">
-      <span className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted">
+      <span className="text-[11px] font-semibold uppercase text-muted">
         {label}
       </span>
       <strong
-        className="break-words font-display text-[1.18rem] font-semibold leading-none tracking-[-0.05em] text-ink tabular-nums sm:text-[1.3rem]"
+        className="break-words font-display text-[1.18rem] font-semibold leading-none text-ink tabular-nums sm:text-[1.3rem]"
         dir="ltr"
       >
         {value}
@@ -56,11 +56,11 @@ function MetricPillGroup({
 function AdMetric({ label, value }: { label: string; value: string }) {
   return (
     <div className="grid min-h-[72px] gap-1 rounded-[18px] border border-black/[0.05] bg-white/92 px-3 py-2.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.96)] sm:min-h-[88px] sm:px-3.5 sm:py-3">
-      <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-muted">
+      <span className="text-[10px] font-semibold uppercase text-muted">
         {label}
       </span>
       <strong
-        className="self-end font-display text-[1rem] font-semibold leading-none tracking-[-0.05em] text-ink tabular-nums sm:text-[1.18rem]"
+        className="self-end font-display text-[1rem] font-semibold leading-none text-ink tabular-nums sm:text-[1.18rem]"
         dir="ltr"
       >
         {value}
@@ -108,7 +108,7 @@ export function CampaignHierarchy({ adSets }: CampaignHierarchyProps) {
                       {`المجموعة ${adSetIndex + 1}`}
                     </span>
                   </div>
-                  <h3 className="m-0 text-[1.02rem] font-medium tracking-[-0.03em] text-ink">
+                  <h3 className="m-0 text-[1.02rem] font-medium text-ink">
                     {adSet.name}
                   </h3>
                 </div>
@@ -117,22 +117,22 @@ export function CampaignHierarchy({ adSets }: CampaignHierarchyProps) {
               <div className="flex w-full items-center justify-between gap-3 lg:w-auto lg:flex-none">
                 <div className="grid grid-cols-2 gap-2 text-right lg:min-w-[220px]">
                   <div className="rounded-[18px] border border-black/[0.05] bg-white/82 px-3 py-2.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.9)]">
-                    <span className="block text-[10px] font-semibold uppercase tracking-[0.14em] text-muted">
+                    <span className="block text-[10px] font-semibold uppercase text-muted">
                       Ads
                     </span>
                     <strong
-                      className="mt-1 block font-display text-[1.12rem] font-semibold leading-none tracking-[-0.05em] text-ink tabular-nums sm:text-[1.22rem]"
+                      className="mt-1 block font-display text-[1.12rem] font-semibold leading-none text-ink tabular-nums sm:text-[1.22rem]"
                       dir="ltr"
                     >
                       {formatInteger(adSet.ads.length)}
                     </strong>
                   </div>
                   <div className="rounded-[18px] border border-black/[0.05] bg-white/82 px-3 py-2.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.9)]">
-                    <span className="block text-[10px] font-semibold uppercase tracking-[0.14em] text-muted">
+                    <span className="block text-[10px] font-semibold uppercase text-muted">
                       Spend
                     </span>
                     <strong
-                      className="mt-1 block font-display text-[1.02rem] font-semibold leading-none tracking-[-0.05em] text-ink tabular-nums sm:text-[1.12rem]"
+                      className="mt-1 block font-display text-[1.02rem] font-semibold leading-none text-ink tabular-nums sm:text-[1.12rem]"
                       dir="ltr"
                     >
                       {formatDisplayCurrency(adSet.spend)}
@@ -193,7 +193,7 @@ export function CampaignHierarchy({ adSets }: CampaignHierarchyProps) {
                             {`الإعلان ${adIndex + 1}`}
                           </span>
                         </div>
-                        <strong className="text-[15px] font-medium tracking-[-0.02em] text-ink">
+                        <strong className="text-[15px] font-medium text-ink">
                           {ad.name}
                         </strong>
                       </div>

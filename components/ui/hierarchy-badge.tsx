@@ -28,9 +28,9 @@ export function HierarchyBadge({
   return (
     <span
       className={cn(
-        "inline-flex w-fit items-center gap-2 rounded-full border px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.12em]",
+        "inline-flex w-fit items-center gap-2 rounded-full border px-3 py-1 text-[11px] font-semibold uppercase ",
         badgeStyles[variant],
-        className,
+        className
       )}
     >
       <span className={cn("h-2 w-2 rounded-full", dotStyles[variant])} />

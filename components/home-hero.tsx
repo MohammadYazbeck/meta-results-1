@@ -16,10 +16,10 @@ type HomeHeroProps = {
 function MetaItem({ label, value }: { label: string; value: string }) {
   return (
     <div className="grid gap-1 rounded-[24px] border border-black/[0.06] bg-white/75 px-4 py-3.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.9)]">
-      <span className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted">
+      <span className="text-[11px] font-semibold uppercase  text-muted">
         {label}
       </span>
-      <strong className="break-all font-display text-[15px] font-medium tracking-[-0.03em] text-ink">
+      <strong className="break-all font-display text-[15px] font-medium  text-ink">
         {value}
       </strong>
     </div>
@@ -39,7 +39,7 @@ export function HomeHero({ accountId, rangeLabel, source }: HomeHeroProps) {
     <section
       className={cn(
         panelClassName,
-        "relative mb-8 grid gap-8 px-5 py-6 sm:px-6 sm:py-7 xl:grid-cols-[minmax(0,1.55fr)_minmax(320px,0.8fr)]",
+        "relative mb-8 grid gap-8 px-5 py-6 sm:px-6 sm:py-7 xl:grid-cols-[minmax(0,1.55fr)_minmax(320px,0.8fr)]"
       )}
     >
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(0,113,227,0.11),transparent_26%),radial-gradient(circle_at_bottom_left,rgba(255,255,255,0.9),transparent_28%),linear-gradient(180deg,rgba(255,255,255,0.24),transparent)]" />
@@ -48,14 +48,14 @@ export function HomeHero({ accountId, rangeLabel, source }: HomeHeroProps) {
 
       <div className="relative z-[1]">
         <p className={eyebrowClassName}>لوحة تقارير ميتا</p>
-        <h1 className="max-w-[11ch] font-display text-[clamp(2.25rem,5vw,5rem)] leading-[0.92] tracking-[-0.06em] text-ink max-sm:max-w-none">
+        <h1 className="max-w-[11ch] font-display text-[clamp(2.25rem,5vw,5rem)] leading-[0.92]  text-ink max-sm:max-w-none">
           صورة أوضح لأداء حملاتك.
         </h1>
 
         <p className="mt-5 max-w-[60ch] text-[1rem] leading-8 text-[#333336] sm:text-[1.06rem]">
-          بيانات مباشرة من
-          {" "}<span className="font-medium text-ink">Meta Marketing API</span>{" "}
-          داخل واجهة عربية هادئة، مصممة لقراءة أسرع وفهم أسرع للنتائج.
+          بيانات مباشرة من{" "}
+          <span className="font-medium text-ink">Meta Marketing API</span> داخل
+          واجهة عربية هادئة، مصممة لقراءة أسرع وفهم أسرع للنتائج.
         </p>
 
         <div className="mt-6 flex flex-wrap gap-2.5">

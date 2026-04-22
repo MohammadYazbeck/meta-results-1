@@ -11,10 +11,8 @@ import { isAdminAuthenticated } from "@/lib/admin-auth";
 import { getCampaignBudget } from "@/lib/budget-store";
 import {
   getCampaignDetailData,
-  getDefaultDateRange,
   getEmptyCampaignDetailData,
   getSuggestedRangeLabel,
-  sanitizeDateRange,
   type CampaignDetailData,
 } from "@/lib/meta";
 import { cn } from "@/lib/utils";
@@ -35,41 +33,27 @@ const CampaignHierarchy = dynamic(
 
 type PageProps = {
   params: Promise<{ campaignId: string }>;
-  searchParams?: Promise<Record<string, string | string[] | undefined>>;
 };
-
-function getSingleValue(value?: string | string[]) {
-  return Array.isArray(value) ? value[0] : value;
-}
 
 function buildWallet(totalPaid: number, totalSpent: number) {
   return Math.round((totalPaid - totalSpent) * 100) / 100;
 }
 
-export default async function CampaignDetailPage({
-  params,
-  searchParams,
-}: PageProps) {
+export default async function CampaignDetailPage({ params }: PageProps) {
   const { campaignId } = await params;
-  const resolvedSearchParams = (await searchParams) ?? {};
-  const fallbackRange = getDefaultDateRange();
-  const range = sanitizeDateRange(
-    getSingleValue(resolvedSearchParams.start) ?? fallbackRange.start,
-    getSingleValue(resolvedSearchParams.end) ?? fallbackRange.end,
-  );
   const isAdmin = await isAdminAuthenticated();
   const budgetRecord = await getCampaignBudget(campaignId);
   let errorMessage: string | null = null;
   let campaign: CampaignDetailData;
 
   try {
-    campaign = await getCampaignDetailData(campaignId, range);
+    campaign = await getCampaignDetailData(campaignId);
   } catch (error) {
     errorMessage =
       error instanceof Error
         ? error.message
         : "Unexpected error while loading campaign data.";
-    campaign = getEmptyCampaignDetailData(campaignId, range);
+    campaign = getEmptyCampaignDetailData(campaignId);
   }
 
   const totalPaid = budgetRecord.totalPaid ?? 0;
@@ -100,15 +84,11 @@ export default async function CampaignDetailPage({
         ) : null}
 
         <section className="grid gap-6 lg:gap-7">
-          <section className={cn(panelClassName, "overflow-hidden")}> 
+          <section className={cn(panelClassName, "overflow-hidden")}>
             <SectionHeading
               action={
                 <div className="flex flex-col gap-2 sm:items-end">
-                  <p className="m-0 text-sm text-muted">
-                    {new Intl.NumberFormat("en-US").format(campaign.adSets.length)}
-                    {" "}مجموعة إعلانية / {new Intl.NumberFormat("en-US").format(totalAds)}
-                    {" "}إعلان
-                  </p>
+                  <p className="m-0 text-sm text-muted">{rangeLabel}</p>
                   <div className="flex flex-wrap gap-2 sm:justify-end">
                     <HierarchyBadge variant="campaign">Campaign</HierarchyBadge>
                     <HierarchyBadge variant="adSet">Ad Set</HierarchyBadge>
@@ -127,7 +107,6 @@ export default async function CampaignDetailPage({
             <CampaignBudgetPanel
               campaignId={campaign.campaignId}
               payments={budgetRecord.payments}
-              range={campaign.range}
             />
           ) : null}
         </section>

@@ -131,10 +131,10 @@ export function SpendChart({ daily }: SpendChartProps) {
                   className="rounded-[22px] border border-black/[0.05] bg-white/80 px-3 py-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.85)]"
                   key={entry.date}
                 >
-                  <span className="block text-[11px] font-semibold uppercase tracking-[0.14em] text-muted">
+                  <span className="block text-[11px] font-semibold uppercase text-muted">
                     {entry.date.slice(5)}
                   </span>
-                  <strong className="mt-1 block font-display text-[15px] font-medium tracking-[-0.03em] text-ink">
+                  <strong className="mt-1 block font-display text-[15px] font-medium  text-ink">
                     {formatDisplayCurrencyCompact(entry.spend)}
                   </strong>
                 </div>

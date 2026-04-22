@@ -2,7 +2,7 @@ export const panelClassName =
   "overflow-hidden rounded-[30px] border border-white/70 bg-[var(--card)] shadow-panel backdrop-blur-2xl transition-[transform,box-shadow,border-color,background-color] duration-300 hover:border-black/[0.06] hover:shadow-[0_28px_70px_rgba(15,23,42,0.08),0_10px_22px_rgba(15,23,42,0.05)]";
 
 export const eyebrowClassName =
-  "mb-2 text-[0.68rem] font-semibold uppercase tracking-[0.18em] text-accent/85";
+  "mb-2 text-[0.68rem] font-semibold uppercase  text-accent/85";
 
 export const mutedTextClassName = "mt-2 text-[0.95rem] leading-7 text-muted";
 

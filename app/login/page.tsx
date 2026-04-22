@@ -33,9 +33,11 @@ export default async function LoginPage({ searchParams }: PageProps) {
 
   return (
     <main className="flex min-h-screen items-center justify-center px-4 py-8">
-      <section className={cn(panelClassName, "w-full max-w-[460px] p-6 sm:p-8")}> 
+      <section
+        className={cn(panelClassName, "w-full max-w-[460px] p-6 sm:p-8")}
+      >
         <p className={eyebrowClassName}>دخول المدير</p>
-        <h1 className="font-display text-[clamp(2rem,6vw,3.2rem)] leading-[1.02] tracking-[-0.06em] text-ink">
+        <h1 className="font-display text-[clamp(2rem,6vw,3.2rem)] leading-[1.02] text-ink">
           تسجيل الدخول إلى لوحة التحكم
         </h1>
         <p className={mutedTextClassName}>
@@ -46,7 +48,12 @@ export default async function LoginPage({ searchParams }: PageProps) {
           <label className="text-sm font-medium text-muted" htmlFor="username">
             اسم المستخدم
           </label>
-          <input className={inputClassName} id="username" name="username" type="text" />
+          <input
+            className={inputClassName}
+            id="username"
+            name="username"
+            type="text"
+          />
 
           <label className="text-sm font-medium text-muted" htmlFor="password">
             كلمة المرور
@@ -64,7 +71,9 @@ export default async function LoginPage({ searchParams }: PageProps) {
         </form>
 
         {errorMessage ? (
-          <p className="mt-4 text-sm font-bold text-[#b42318]">{errorMessage}</p>
+          <p className="mt-4 text-sm font-bold text-[#b42318]">
+            {errorMessage}
+          </p>
         ) : null}
       </section>
     </main>

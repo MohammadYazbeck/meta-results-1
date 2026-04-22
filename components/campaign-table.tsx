@@ -2,7 +2,7 @@ import Link from "next/link";
 
 import { CampaignBudgetRecord } from "@/lib/budget-store";
 import { formatDisplayCurrency } from "@/lib/currency";
-import { CampaignSpend, DateRange } from "@/lib/meta";
+import { CampaignSpend } from "@/lib/meta";
 
 import { panelClassName } from "@/components/ui/class-names";
 import { SectionHeading } from "@/components/ui/section-heading";
@@ -11,7 +11,6 @@ import { cn } from "@/lib/utils";
 type CampaignTableProps = {
   budgets: Record<string, CampaignBudgetRecord>;
   campaigns: CampaignSpend[];
-  range: DateRange;
 };
 
 function getRemaining(totalPaid: number, totalSpend: number) {
@@ -20,22 +19,20 @@ function getRemaining(totalPaid: number, totalSpend: number) {
 
 function CampaignLinkCell({
   campaign,
-  range,
 }: {
   campaign: CampaignSpend;
-  range: DateRange;
 }) {
   return (
     <div className="grid gap-2">
       <div className="flex flex-col gap-2 xl:flex-row xl:items-center xl:justify-between">
         <Link
-          className="font-medium tracking-[-0.02em] text-ink transition hover:text-accent"
-          href={`/${campaign.campaignId}?start=${range.start}&end=${range.end}`}
+          className="font-medium text-ink transition hover:text-accent"
+          href={`/${campaign.campaignId}`}
         >
           {campaign.campaignName}
         </Link>
 
-        <span className="inline-flex w-fit items-center rounded-full border border-black/[0.05] bg-[rgba(0,113,227,0.08)] px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-accent">
+        <span className="inline-flex w-fit items-center rounded-full border border-black/[0.05] bg-[rgba(0,113,227,0.08)] px-3 py-1 text-[11px] font-semibold uppercase text-accent">
           التقرير
         </span>
       </div>
@@ -56,12 +53,12 @@ function MobileMetric({
 }) {
   return (
     <div className="rounded-[20px] border border-black/[0.05] bg-white/80 px-3.5 py-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.9)]">
-      <span className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted">
+      <span className="text-[11px] font-semibold uppercase text-muted">
         {label}
       </span>
       <strong
         className={cn(
-          "mt-1 block font-display text-[15px] font-medium tracking-[-0.03em]",
+          "mt-1 block font-display text-[15px] font-medium",
           danger ? "text-[#b42318]" : "text-ink",
         )}
       >
@@ -71,7 +68,7 @@ function MobileMetric({
   );
 }
 
-export function CampaignTable({ budgets, campaigns, range }: CampaignTableProps) {
+export function CampaignTable({ budgets, campaigns }: CampaignTableProps) {
   return (
     <section className={cn(panelClassName, "overflow-hidden")}> 
       <SectionHeading
@@ -90,7 +87,7 @@ export function CampaignTable({ budgets, campaigns, range }: CampaignTableProps)
               className="grid gap-3 rounded-[26px] border border-black/[0.05] bg-white/72 p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.9)]"
               key={campaign.campaignId}
             >
-              <CampaignLinkCell campaign={campaign} range={range} />
+              <CampaignLinkCell campaign={campaign} />
 
               <div className="grid gap-2 sm:grid-cols-2">
                 <MobileMetric
@@ -129,7 +126,7 @@ export function CampaignTable({ budgets, campaigns, range }: CampaignTableProps)
       <div className="hidden overflow-x-auto px-3 pb-3 md:block">
         <table className="min-w-full border-separate border-spacing-y-3 text-right">
           <thead>
-            <tr className="text-[12px] font-semibold uppercase tracking-[0.14em] text-muted">
+            <tr className="text-[12px] font-semibold uppercase text-muted">
               <th className="px-5 py-2">الحملة</th>
               <th className="px-4 py-2">إجمالي المدفوع</th>
               <th className="px-4 py-2">المتبقي</th>
@@ -150,23 +147,23 @@ export function CampaignTable({ budgets, campaigns, range }: CampaignTableProps)
                   key={campaign.campaignId}
                 >
                   <td className="rounded-r-[26px] border-y border-r border-black/[0.05] bg-white/72 px-5 py-4 align-top shadow-[inset_0_1px_0_rgba(255,255,255,0.9)]">
-                    <CampaignLinkCell campaign={campaign} range={range} />
+                    <CampaignLinkCell campaign={campaign} />
                   </td>
-                  <td className="border-y border-black/[0.05] bg-white/72 px-4 py-4 font-display text-[15px] font-medium tracking-[-0.03em] text-ink shadow-[inset_0_1px_0_rgba(255,255,255,0.9)]">
+                  <td className="border-y border-black/[0.05] bg-white/72 px-4 py-4 font-display text-[15px] font-medium text-ink shadow-[inset_0_1px_0_rgba(255,255,255,0.9)]">
                     {formatDisplayCurrency(totalPaid)}
                   </td>
                   <td
                     className={cn(
-                      "border-y border-black/[0.05] bg-white/72 px-4 py-4 font-display text-[15px] font-medium tracking-[-0.03em] shadow-[inset_0_1px_0_rgba(255,255,255,0.9)]",
+                      "border-y border-black/[0.05] bg-white/72 px-4 py-4 font-display text-[15px] font-medium shadow-[inset_0_1px_0_rgba(255,255,255,0.9)]",
                       remaining < 0 ? "text-[#b42318]" : "text-ink",
                     )}
                   >
                     {formatDisplayCurrency(remaining)}
                   </td>
-                  <td className="border-y border-black/[0.05] bg-white/72 px-4 py-4 font-display text-[15px] font-medium tracking-[-0.03em] text-ink shadow-[inset_0_1px_0_rgba(255,255,255,0.9)]">
+                  <td className="border-y border-black/[0.05] bg-white/72 px-4 py-4 font-display text-[15px] font-medium text-ink shadow-[inset_0_1px_0_rgba(255,255,255,0.9)]">
                     {formatDisplayCurrency(campaign.totalSpend)}
                   </td>
-                  <td className="border-y border-black/[0.05] bg-white/72 px-4 py-4 font-display text-[15px] font-medium tracking-[-0.03em] text-ink shadow-[inset_0_1px_0_rgba(255,255,255,0.9)]">
+                  <td className="border-y border-black/[0.05] bg-white/72 px-4 py-4 font-display text-[15px] font-medium text-ink shadow-[inset_0_1px_0_rgba(255,255,255,0.9)]">
                     {formatDisplayCurrency(campaign.averageDailySpend)}
                   </td>
                   <td className="rounded-l-[26px] border-y border-l border-black/[0.05] bg-white/72 px-4 py-4 text-sm font-medium text-ink shadow-[inset_0_1px_0_rgba(255,255,255,0.9)]">

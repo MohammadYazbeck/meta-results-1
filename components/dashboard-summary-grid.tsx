@@ -31,7 +31,7 @@ function SummaryCard({
         panelClassName,
         "relative p-5 sm:p-6",
         featured &&
-          "border-white/80 bg-[linear-gradient(160deg,rgba(255,255,255,0.94),rgba(245,249,255,0.78))]",
+          "border-white/80 bg-[linear-gradient(160deg,rgba(255,255,255,0.94),rgba(245,249,255,0.78))]"
       )}
     >
       {featured ? (
@@ -39,18 +39,22 @@ function SummaryCard({
       ) : null}
 
       <div className="relative z-[1]">
-        <p className={cn(eyebrowClassName, featured && "text-accent")}>{eyebrow}</p>
+        <p className={cn(eyebrowClassName, featured && "text-accent")}>
+          {eyebrow}
+        </p>
         <h2
           className={cn(
-            "font-display leading-none tracking-[-0.055em] text-ink",
+            "font-display leading-none  text-ink",
             featured
               ? "text-[clamp(2.2rem,4vw,3.65rem)]"
-              : "text-[clamp(1.65rem,2.6vw,2.3rem)]",
+              : "text-[clamp(1.65rem,2.6vw,2.3rem)]"
           )}
         >
           {value}
         </h2>
-        <p className={cn(mutedTextClassName, featured && "max-w-[28ch]")}>{text}</p>
+        <p className={cn(mutedTextClassName, featured && "max-w-[28ch]")}>
+          {text}
+        </p>
       </div>
     </article>
   );

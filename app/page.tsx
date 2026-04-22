@@ -81,11 +81,10 @@ export default async function HomePage({ searchParams }: PageProps) {
           <SpendChart daily={data.daily} />
         </section>
 
-        <CampaignTable
-          budgets={budgets}
-          campaigns={data.campaigns}
-          range={data.range}
-        />
+      <CampaignTable
+        budgets={budgets}
+        campaigns={data.campaigns}
+      />
       </PageScene>
     </main>
   );

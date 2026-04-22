@@ -2,7 +2,10 @@ import { ReactNode } from "react";
 
 import { cn } from "@/lib/utils";
 
-import { eyebrowClassName, mutedTextClassName } from "@/components/ui/class-names";
+import {
+  eyebrowClassName,
+  mutedTextClassName,
+} from "@/components/ui/class-names";
 
 type SectionHeadingProps = {
   action?: ReactNode;
@@ -23,18 +26,22 @@ export function SectionHeading({
     <div
       className={cn(
         "flex flex-col gap-3 px-5 pt-5 sm:flex-row sm:items-end sm:justify-between sm:px-6 sm:pt-6",
-        className,
+        className
       )}
     >
       <div className="max-w-2xl">
         <p className={eyebrowClassName}>{eyebrow}</p>
-        <h2 className="font-display text-[clamp(1.35rem,2vw,2.05rem)] leading-[1.08] tracking-[-0.045em] text-ink">
+        <h2 className="font-display text-[clamp(1.35rem,2vw,2.05rem)] leading-[1.08]  text-ink">
           {title}
         </h2>
-        {description ? <div className={mutedTextClassName}>{description}</div> : null}
+        {description ? (
+          <div className={mutedTextClassName}>{description}</div>
+        ) : null}
       </div>
       {action ? (
-        <div className="text-sm font-medium text-muted sm:text-left">{action}</div>
+        <div className="text-sm font-medium text-muted sm:text-left">
+          {action}
+        </div>
       ) : null}
     </div>
   );

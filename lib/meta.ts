@@ -113,6 +113,7 @@ export type CampaignDetailData = {
   campaignName: string;
   range: DateRange;
   source: "live" | "mock";
+  status?: string;
   totals: MetricTotals;
 };
 
@@ -406,7 +407,23 @@ export function getEmptyCampaignDetailData(
     campaignName: `Campaign ${campaignId}`,
     range,
     source: "live",
+    status: undefined,
     totals: zeroTotals(),
+  };
+}
+
+function getLifetimeRangeFromRows(campaignId: string, rows: MetaInsightsRow[]): DateRange {
+  const fallbackEnd = formatDate(new Date());
+  const campaignDates = rows
+    .filter((row) => row.campaign_id === campaignId && row.date_start)
+    .map((row) => row.date_start as string)
+    .sort();
+
+  const start = campaignDates[0] || fallbackEnd;
+
+  return {
+    end: fallbackEnd,
+    start,
   };
 }
 
@@ -627,13 +644,22 @@ export async function getCampaignDetailData(
   campaignId: string,
   inputRange?: Partial<DateRange>,
 ): Promise<CampaignDetailData> {
-  const range = sanitizeDateRange(inputRange?.start, inputRange?.end);
+  const fallbackRange = sanitizeDateRange(inputRange?.start, inputRange?.end);
 
   if (!isConfigured()) {
-    return getEmptyCampaignDetailData(campaignId, range);
+    return getEmptyCampaignDetailData(campaignId, fallbackRange);
   }
 
-  const [lifetimeRows, adSetInsights, adInsights] = await Promise.all([
+  const [campaigns, campaignDailyRows, lifetimeRows, adSetInsights, adInsights] = await Promise.all([
+    fetchAllPages<MetaEntity>(buildAccountEdgeUrl("campaigns", "id,name,status")),
+    fetchAllPages<MetaInsightsRow>(
+      buildAccountInsightsUrl({
+        datePreset: "maximum",
+        fields: "campaign_id,campaign_name,date_start,spend",
+        level: "campaign",
+        timeIncrement: "1",
+      }),
+    ),
     fetchAllPages<MetaInsightsRow>(
       buildAccountInsightsUrl({
         datePreset: "maximum",
@@ -662,8 +688,10 @@ export async function getCampaignDetailData(
   ]);
 
   const lifetimeRow = lifetimeRows.find((row) => row.campaign_id === campaignId);
+  const campaignEntity = campaigns.find((campaign) => campaign.id === campaignId);
   const hierarchy = buildCampaignHierarchyFromInsights(campaignId, adSetInsights, adInsights);
   const totals = lifetimeRow ? metricsFromInsights(lifetimeRow) : hierarchy.reduce((sum, adSet) => mergeTotals(sum, adSet), zeroTotals());
+  const range = getLifetimeRangeFromRows(campaignId, campaignDailyRows);
 
   totals.spend = roundCurrency(convertAccountCurrencyAmount(parseNumericValue(lifetimeRow?.spend)));
 
@@ -673,6 +701,7 @@ export async function getCampaignDetailData(
     campaignName: lifetimeRow?.campaign_name || `Campaign ${campaignId}`,
     range,
     source: "live",
+    status: campaignEntity?.status,
     totals,
   };
 }
