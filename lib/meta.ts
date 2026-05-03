@@ -409,6 +409,40 @@ function mergeTotals(base: MetricTotals, next: MetricTotals): MetricTotals {
   };
 }
 
+function getMaxMetric(items: MetricTotals[], key: keyof MetricTotals) {
+  return items.reduce((max, item) => Math.max(max, item[key]), 0);
+}
+
+function reconcileParentCountTotals(
+  parent: MetricTotals,
+  children: MetricTotals[],
+): MetricTotals {
+  if (!children.length) {
+    return parent;
+  }
+
+  const childTotals = children.reduce((sum, child) => mergeTotals(sum, child), zeroTotals());
+
+  return {
+    ...parent,
+    followers: Math.max(parent.followers, childTotals.followers),
+    impressions: Math.max(parent.impressions, childTotals.impressions),
+    messages: childTotals.messages,
+    reach: Math.max(parent.reach, getMaxMetric(children, "reach")),
+  };
+}
+
+function reconcileSingleAdWithAdSet(ad: AdPerformance, adSetTotals: MetricTotals): AdPerformance {
+  return {
+    ...ad,
+    followers: Math.max(ad.followers, adSetTotals.followers),
+    impressions: Math.max(ad.impressions, adSetTotals.impressions),
+    messages: Math.max(ad.messages, adSetTotals.messages),
+    reach: Math.max(ad.reach, adSetTotals.reach),
+    spend: Math.max(ad.spend, adSetTotals.spend),
+  };
+}
+
 function createDateSeries(range: DateRange) {
   const cursor = new Date(range.start);
   const end = new Date(range.end);
@@ -655,7 +689,7 @@ function buildCampaignHierarchyFromInsights(
 
   return [...hierarchy.values()]
     .map((adSet) => {
-      const adsTotals = adSet.ads.reduce((sum, ad) => mergeTotals(sum, ad), zeroTotals());
+      const rawAdsTotals = adSet.ads.reduce((sum, ad) => mergeTotals(sum, ad), zeroTotals());
       const levelTotals =
         adSet.ads.length > 0 &&
         adSet.spend === 0 &&
@@ -663,7 +697,7 @@ function buildCampaignHierarchyFromInsights(
         adSet.messages === 0 &&
         adSet.followers === 0 &&
         adSet.reach === 0
-          ? adsTotals
+          ? rawAdsTotals
           : {
               followers: adSet.followers,
               impressions: adSet.impressions,
@@ -671,14 +705,23 @@ function buildCampaignHierarchyFromInsights(
               reach: adSet.reach,
               spend: adSet.spend,
             };
+      const sortedAds = adSet.ads.sort((left, right) => right.spend - left.spend);
+      const displayAds =
+        sortedAds.length === 1
+          ? [reconcileSingleAdWithAdSet(sortedAds[0], levelTotals)]
+          : sortedAds;
+      const displayAdsTotals = displayAds.reduce(
+        (sum, ad) => mergeTotals(sum, ad),
+        zeroTotals(),
+      );
       const totals = {
-        ...levelTotals,
-        messages: adSet.ads.length ? adsTotals.messages : levelTotals.messages,
+        ...reconcileParentCountTotals(levelTotals, displayAds),
+        spend: levelTotals.spend || displayAdsTotals.spend,
       };
 
       return {
         ...totals,
-        ads: adSet.ads.sort((left, right) => right.spend - left.spend),
+        ads: displayAds,
         id: adSet.id,
         name: adSet.name,
       };
@@ -767,10 +810,11 @@ export async function getCampaignDetailData(
   const campaignEntity = campaigns.find((campaign) => campaign.id === campaignId);
   const hierarchy = buildCampaignHierarchyFromInsights(campaignId, adSetInsights, adInsights);
   const hierarchyTotals = hierarchy.reduce((sum, adSet) => mergeTotals(sum, adSet), zeroTotals());
-  const totals = lifetimeRow ? metricsFromInsights(lifetimeRow) : hierarchyTotals;
+  const totals = reconcileParentCountTotals(
+    lifetimeRow ? metricsFromInsights(lifetimeRow) : hierarchyTotals,
+    hierarchy,
+  );
   const range = getLifetimeRangeFromRows(campaignId, campaignDailyRows);
-
-  totals.messages = hierarchy.length ? hierarchyTotals.messages : totals.messages;
 
   if (lifetimeRow?.spend) {
     totals.spend = roundCurrency(convertAccountCurrencyAmount(parseNumericValue(lifetimeRow.spend)));
@@ -878,14 +922,11 @@ export async function getCampaignDebugData(campaignId: string): Promise<Campaign
     (sum, item) => mergeTotals(sum, metricsFromInsights(item)),
     zeroTotals(),
   );
-  const currentRenderedCampaign = {
-    ...(filteredCampaigns.length ? campaignLevel : adSetLevelSum),
-    messages: filteredAds.length
-      ? adLevelSum.messages
-      : filteredAdSets.length
-        ? adSetLevelSum.messages
-        : campaignLevel.messages,
-  };
+  const hierarchy = buildCampaignHierarchyFromInsights(campaignId, adSetInsights, adInsights);
+  const currentRenderedCampaign = reconcileParentCountTotals(
+    filteredCampaigns.length ? campaignLevel : adSetLevelSum,
+    hierarchy,
+  );
 
   return {
     accountId: getAccountId(),

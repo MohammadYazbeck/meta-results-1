@@ -198,10 +198,11 @@ export function CampaignHierarchy({ adSets }: CampaignHierarchyProps) {
                         </strong>
                       </div>
 
-                      <div className="grid grid-cols-3 gap-2">
+                      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
                         <AdMetric label="المصروف" value={formatDisplayCurrency(ad.spend)} />
                         <AdMetric label="رسائل" value={formatInteger(ad.messages)} />
                         <AdMetric label="وصول" value={formatInteger(ad.reach)} />
+                        <AdMetric label="انطباعات" value={formatInteger(ad.impressions)} />
                       </div>
                     </article>
                   ))}
