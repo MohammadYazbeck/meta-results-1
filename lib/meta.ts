@@ -6,9 +6,6 @@ const META_CACHE_TTL_MS = 60_000;
 const SAMPLE_PREFIX = "replace_with_";
 const MESSAGES_ALIASES = [
   "messaging_conversation_started",
-  "messaging_first_reply",
-  "total_messaging_connection",
-  "messaging_replied",
 ];
 const FOLLOWERS_ALIASES = [
   "omni_follow",
@@ -122,6 +119,23 @@ export type CampaignDebugData = {
   campaignId: string;
   campaignMatched: boolean;
   campaignName: string;
+  messageAliases: string[];
+  rows: {
+    ads: CampaignDebugInsightRow[];
+    adSets: CampaignDebugInsightRow[];
+    campaign: CampaignDebugInsightRow[];
+  };
+  storage: {
+    metricsSaved: boolean;
+    persistedFile: string;
+    savedFields: string[];
+  };
+  totalsComparison: {
+    adLevelSum: MetricTotals;
+    adSetLevelSum: MetricTotals;
+    campaignLevel: MetricTotals;
+    currentRenderedCampaign: MetricTotals;
+  };
   counts: {
     accountAds: number;
     accountAdSets: number;
@@ -137,6 +151,29 @@ export type CampaignDebugData = {
     adSetIds: string[];
     adSetNames: string[];
   };
+};
+
+type CampaignDebugAction = {
+  actionType: string;
+  countedAsFollower: boolean;
+  countedAsMessage: boolean;
+  rawValue: string;
+  value: number;
+};
+
+type CampaignDebugInsightRow = MetricTotals & {
+  actions: CampaignDebugAction[];
+  adId?: string;
+  adName?: string;
+  adSetId?: string;
+  adSetName?: string;
+  campaignId?: string;
+  campaignName?: string;
+  level: "campaign" | "adset" | "ad";
+  raw: MetaInsightsRow;
+  rawImpressions?: string;
+  rawReach?: string;
+  rawSpend?: string;
 };
 
 function roundCurrency(value: number) {
@@ -314,6 +351,41 @@ function metricsFromInsights(row?: MetaInsightsRow): MetricTotals {
     messages: sumActionValues(row?.actions, MESSAGES_ALIASES),
     reach: roundCount(parseNumericValue(row?.reach)),
     spend: roundCurrency(convertAccountCurrencyAmount(parseNumericValue(row?.spend))),
+  };
+}
+
+function debugActionsFromInsights(row: MetaInsightsRow): CampaignDebugAction[] {
+  return (row.actions || []).map((action) => {
+    const actionType = action.action_type || "";
+
+    return {
+      actionType,
+      countedAsFollower: actionType ? actionTypeMatches(actionType, FOLLOWERS_ALIASES) : false,
+      countedAsMessage: actionType ? actionTypeMatches(actionType, MESSAGES_ALIASES) : false,
+      rawValue: action.value || "0",
+      value: parseNumericValue(action.value),
+    };
+  });
+}
+
+function debugRowFromInsights(
+  level: CampaignDebugInsightRow["level"],
+  row: MetaInsightsRow,
+): CampaignDebugInsightRow {
+  return {
+    ...metricsFromInsights(row),
+    actions: debugActionsFromInsights(row),
+    adId: row.ad_id,
+    adName: row.ad_name,
+    adSetId: row.adset_id,
+    adSetName: row.adset_name,
+    campaignId: row.campaign_id,
+    campaignName: row.campaign_name,
+    level,
+    raw: row,
+    rawImpressions: row.impressions,
+    rawReach: row.reach,
+    rawSpend: row.spend,
   };
 }
 
@@ -584,7 +656,7 @@ function buildCampaignHierarchyFromInsights(
   return [...hierarchy.values()]
     .map((adSet) => {
       const adsTotals = adSet.ads.reduce((sum, ad) => mergeTotals(sum, ad), zeroTotals());
-      const totals =
+      const levelTotals =
         adSet.ads.length > 0 &&
         adSet.spend === 0 &&
         adSet.impressions === 0 &&
@@ -599,6 +671,10 @@ function buildCampaignHierarchyFromInsights(
               reach: adSet.reach,
               spend: adSet.spend,
             };
+      const totals = {
+        ...levelTotals,
+        messages: adSet.ads.length ? adsTotals.messages : levelTotals.messages,
+      };
 
       return {
         ...totals,
@@ -690,10 +766,15 @@ export async function getCampaignDetailData(
   const lifetimeRow = lifetimeRows.find((row) => row.campaign_id === campaignId);
   const campaignEntity = campaigns.find((campaign) => campaign.id === campaignId);
   const hierarchy = buildCampaignHierarchyFromInsights(campaignId, adSetInsights, adInsights);
-  const totals = lifetimeRow ? metricsFromInsights(lifetimeRow) : hierarchy.reduce((sum, adSet) => mergeTotals(sum, adSet), zeroTotals());
+  const hierarchyTotals = hierarchy.reduce((sum, adSet) => mergeTotals(sum, adSet), zeroTotals());
+  const totals = lifetimeRow ? metricsFromInsights(lifetimeRow) : hierarchyTotals;
   const range = getLifetimeRangeFromRows(campaignId, campaignDailyRows);
 
-  totals.spend = roundCurrency(convertAccountCurrencyAmount(parseNumericValue(lifetimeRow?.spend)));
+  totals.messages = hierarchy.length ? hierarchyTotals.messages : totals.messages;
+
+  if (lifetimeRow?.spend) {
+    totals.spend = roundCurrency(convertAccountCurrencyAmount(parseNumericValue(lifetimeRow.spend)));
+  }
 
   return {
     adSets: hierarchy,
@@ -706,8 +787,13 @@ export async function getCampaignDetailData(
   };
 }
 
-export async function getCampaignDebugData(campaignId: string, inputRange?: Partial<DateRange>): Promise<CampaignDebugData> {
-  const range = sanitizeDateRange(inputRange?.start, inputRange?.end);
+export async function getCampaignDebugData(campaignId: string): Promise<CampaignDebugData> {
+  const emptyTotals = zeroTotals();
+  const storage = {
+    metricsSaved: false,
+    persistedFile: "data/campaign-budgets.json",
+    savedFields: ["campaignId", "payments", "totalPaid", "updatedAt"],
+  };
 
   if (!isConfigured()) {
     return {
@@ -715,6 +801,19 @@ export async function getCampaignDebugData(campaignId: string, inputRange?: Part
       campaignId,
       campaignMatched: false,
       campaignName: `Campaign ${campaignId}`,
+      messageAliases: MESSAGES_ALIASES,
+      rows: {
+        ads: [],
+        adSets: [],
+        campaign: [],
+      },
+      storage,
+      totalsComparison: {
+        adLevelSum: emptyTotals,
+        adSetLevelSum: emptyTotals,
+        campaignLevel: emptyTotals,
+        currentRenderedCampaign: emptyTotals,
+      },
       counts: {
         accountAds: 0,
         accountAdSets: 0,
@@ -767,12 +866,45 @@ export async function getCampaignDebugData(campaignId: string, inputRange?: Part
   const matchedAdSetInsights = adSetInsights.filter((item) => item.campaign_id === campaignId);
   const matchedAdInsights = adInsights.filter((item) => item.campaign_id === campaignId);
   const campaignInsight = filteredCampaigns[0];
+  const campaignLevel = filteredCampaigns.reduce(
+    (sum, item) => mergeTotals(sum, metricsFromInsights(item)),
+    zeroTotals(),
+  );
+  const adSetLevelSum = filteredAdSets.reduce(
+    (sum, item) => mergeTotals(sum, metricsFromInsights(item)),
+    zeroTotals(),
+  );
+  const adLevelSum = filteredAds.reduce(
+    (sum, item) => mergeTotals(sum, metricsFromInsights(item)),
+    zeroTotals(),
+  );
+  const currentRenderedCampaign = {
+    ...(filteredCampaigns.length ? campaignLevel : adSetLevelSum),
+    messages: filteredAds.length
+      ? adLevelSum.messages
+      : filteredAdSets.length
+        ? adSetLevelSum.messages
+        : campaignLevel.messages,
+  };
 
   return {
     accountId: getAccountId(),
     campaignId,
     campaignMatched: Boolean(campaignInsight),
     campaignName: campaignInsight?.campaign_name || `Campaign ${campaignId}`,
+    messageAliases: MESSAGES_ALIASES,
+    rows: {
+      ads: filteredAds.map((item) => debugRowFromInsights("ad", item)),
+      adSets: filteredAdSets.map((item) => debugRowFromInsights("adset", item)),
+      campaign: filteredCampaigns.map((item) => debugRowFromInsights("campaign", item)),
+    },
+    storage,
+    totalsComparison: {
+      adLevelSum,
+      adSetLevelSum,
+      campaignLevel,
+      currentRenderedCampaign,
+    },
     counts: {
       accountAds: adInsights.length,
       accountAdSets: adSetInsights.length,

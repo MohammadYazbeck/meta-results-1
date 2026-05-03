@@ -1,22 +1,28 @@
 import { NextRequest, NextResponse } from "next/server";
 
+import { isAdminAuthenticated } from "@/lib/admin-auth";
 import { getCampaignDebugData } from "@/lib/meta";
 
-function getOptionalSearchParam(value: string | null) {
-  return value ?? undefined;
-}
-
 export async function GET(
-  request: NextRequest,
+  _request: NextRequest,
   context: { params: Promise<{ campaignId: string }> },
 ) {
   try {
+    const isAdmin = await isAdminAuthenticated();
+
+    if (!isAdmin) {
+      return NextResponse.json(
+        {
+          error: "Admin authentication required.",
+        },
+        {
+          status: 403,
+        },
+      );
+    }
+
     const { campaignId } = await context.params;
-    const { searchParams } = new URL(request.url);
-    const data = await getCampaignDebugData(campaignId, {
-      end: getOptionalSearchParam(searchParams.get("end")),
-      start: getOptionalSearchParam(searchParams.get("start")),
-    });
+    const data = await getCampaignDebugData(campaignId);
 
     return NextResponse.json(data);
   } catch (error) {
