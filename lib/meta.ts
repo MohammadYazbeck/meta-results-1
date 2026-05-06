@@ -42,9 +42,13 @@ type MetaInsightsRow = {
 type MetaEntity = {
   adset_id?: string;
   campaign_id?: string;
+  configured_status?: string;
+  effective_status?: string;
   id: string;
   name?: string;
+  start_time?: string;
   status?: string;
+  stop_time?: string;
 };
 
 type MetaPage<T> = {
@@ -67,6 +71,7 @@ export type CampaignSpend = {
   averageDailySpend: number;
   campaignId: string;
   campaignName: string;
+  spendInRange: number;
   status?: string;
   totalSpend: number;
 };
@@ -76,8 +81,13 @@ export type DailySpend = {
   spend: number;
 };
 
+export type CampaignDailySpend = DailySpend & {
+  campaignId: string;
+};
+
 export type SpendDashboardData = {
   accountId: string;
+  campaignDaily: CampaignDailySpend[];
   campaigns: CampaignSpend[];
   daily: DailySpend[];
   range: DateRange;
@@ -485,6 +495,7 @@ export function getEmptySpendDashboardData(inputRange?: Partial<DateRange>): Spe
 
   return {
     accountId: getAccountId(),
+    campaignDaily: [],
     campaigns: [],
     daily: dates.map((date) => ({ date, spend: 0 })),
     range,
@@ -533,6 +544,35 @@ function getLifetimeRangeFromRows(campaignId: string, rows: MetaInsightsRow[]): 
   };
 }
 
+function isPastMetaDate(value?: string) {
+  if (!value) {
+    return false;
+  }
+
+  const timestamp = Date.parse(value);
+  return Number.isFinite(timestamp) && timestamp <= Date.now();
+}
+
+function getCampaignDisplayStatus(campaign?: MetaEntity) {
+  if (!campaign) {
+    return undefined;
+  }
+
+  const statuses = [
+    campaign.effective_status,
+    campaign.configured_status,
+    campaign.status,
+  ]
+    .filter(Boolean)
+    .map((status) => (status as string).toUpperCase());
+
+  if (statuses.some((status) => status.includes("COMPLETED")) || isPastMetaDate(campaign.stop_time)) {
+    return "COMPLETED";
+  }
+
+  return statuses[0] || campaign.status;
+}
+
 function buildOverviewData(
   campaigns: MetaEntity[],
   dailyRows: MetaInsightsRow[],
@@ -541,6 +581,7 @@ function buildOverviewData(
 ): SpendDashboardData {
   const dates = createDateSeries(range);
   const dailyMap = new Map(dates.map((date) => [date, 0]));
+  const campaignDailyMap = new Map<string, CampaignDailySpend>();
   const inRangeSpendByCampaign = new Map<string, { activeDays: number; name: string; spend: number }>();
   const lifetimeSpendByCampaign = new Map<string, number>();
   const campaignNames = new Map<string, string>();
@@ -552,6 +593,14 @@ function buildOverviewData(
 
     const spend = roundCurrency(convertAccountCurrencyAmount(parseNumericValue(row.spend)));
     dailyMap.set(row.date_start, roundCurrency((dailyMap.get(row.date_start) || 0) + spend));
+    const campaignDailyKey = `${row.campaign_id}:${row.date_start}`;
+    const currentCampaignDaily = campaignDailyMap.get(campaignDailyKey);
+
+    campaignDailyMap.set(campaignDailyKey, {
+      campaignId: row.campaign_id,
+      date: row.date_start,
+      spend: roundCurrency((currentCampaignDaily?.spend || 0) + spend),
+    });
     campaignNames.set(row.campaign_id, row.campaign_name || `Campaign ${row.campaign_id}`);
 
     const current = inRangeSpendByCampaign.get(row.campaign_id) || {
@@ -602,7 +651,8 @@ function buildOverviewData(
             : 0,
         campaignId,
         campaignName: campaign?.name || inRange?.name || campaignNames.get(campaignId) || `Campaign ${campaignId}`,
-        status: campaign?.status,
+        spendInRange: inRange?.spend ?? 0,
+        status: getCampaignDisplayStatus(campaign),
         totalSpend,
       };
     })
@@ -618,12 +668,22 @@ function buildOverviewData(
     date,
     spend: roundCurrency(dailyMap.get(date) || 0),
   }));
+  const campaignDaily = [...campaignDailyMap.values()].sort((left, right) => {
+    const dateSort = left.date.localeCompare(right.date);
+
+    if (dateSort !== 0) {
+      return dateSort;
+    }
+
+    return left.campaignId.localeCompare(right.campaignId);
+  });
   const totalSpendInRange = roundCurrency(daily.reduce((sum, item) => sum + item.spend, 0));
   const totalSpend = roundCurrency(mergedCampaigns.reduce((sum, campaign) => sum + campaign.totalSpend, 0));
   const topCampaign = mergedCampaigns[0];
 
   return {
     accountId: getAccountId(),
+    campaignDaily,
     campaigns: mergedCampaigns,
     daily,
     range,
@@ -737,7 +797,12 @@ export async function getSpendDashboardData(inputRange?: Partial<DateRange>) {
   }
 
   const [campaigns, dailyRows, lifetimeRows] = await Promise.all([
-    fetchAllPages<MetaEntity>(buildAccountEdgeUrl("campaigns", "id,name,status")),
+    fetchAllPages<MetaEntity>(
+      buildAccountEdgeUrl(
+        "campaigns",
+        "id,name,status,effective_status,configured_status,start_time,stop_time",
+      ),
+    ),
     fetchAllPages<MetaInsightsRow>(
       buildAccountInsightsUrl({
         fields: "campaign_id,campaign_name,date_start,spend",
@@ -770,7 +835,12 @@ export async function getCampaignDetailData(
   }
 
   const [campaigns, campaignDailyRows, lifetimeRows, adSetInsights, adInsights] = await Promise.all([
-    fetchAllPages<MetaEntity>(buildAccountEdgeUrl("campaigns", "id,name,status")),
+    fetchAllPages<MetaEntity>(
+      buildAccountEdgeUrl(
+        "campaigns",
+        "id,name,status,effective_status,configured_status,start_time,stop_time",
+      ),
+    ),
     fetchAllPages<MetaInsightsRow>(
       buildAccountInsightsUrl({
         datePreset: "maximum",
@@ -826,7 +896,7 @@ export async function getCampaignDetailData(
     campaignName: lifetimeRow?.campaign_name || `Campaign ${campaignId}`,
     range,
     source: "live",
-    status: campaignEntity?.status,
+    status: getCampaignDisplayStatus(campaignEntity),
     totals,
   };
 }

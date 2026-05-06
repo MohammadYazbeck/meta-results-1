@@ -4,7 +4,7 @@ import type { NextRequest } from "next/server";
 import { adminSessionCookieName, isValidAdminSessionValue } from "@/lib/admin-auth";
 
 const PUBLIC_PATHS = ["/login"];
-const RESERVED_PRIVATE_SEGMENTS = new Set(["api", "login"]);
+const RESERVED_PRIVATE_SEGMENTS = new Set(["api", "archive", "login"]);
 
 function isPublicCampaignPath(pathname: string) {
   const segments = pathname.split("/").filter(Boolean);

@@ -42,9 +42,9 @@ export function CampaignBudgetPanel({
             className={inputClassName}
             id="paymentAmount"
             inputMode="decimal"
-            min="0"
             name="paymentAmount"
             placeholder="0.00"
+            required
             step="0.01"
             type="number"
           />
@@ -55,7 +55,7 @@ export function CampaignBudgetPanel({
 
           <p className={mutedTextClassName}>
             كل دفعة يتم حفظها بشكل مستقل، وإجمالي المدفوع هو مجموع كل الدفعات
-            المرتبطة بالحملة.
+            المرتبطة بالحملة. يمكن إدخال قيمة سالبة لتعديل الرصيد.
           </p>
         </form>
 

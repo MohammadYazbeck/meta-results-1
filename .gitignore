@@ -1,6 +1,7 @@
 .next
 node_modules
 .env.local
+data/campaign-archive.json
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*

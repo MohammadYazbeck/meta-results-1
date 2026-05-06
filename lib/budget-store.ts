@@ -79,6 +79,10 @@ export async function getAllCampaignBudgets() {
 }
 
 export async function addCampaignPayment(campaignId: string, amount: number) {
+  if (!Number.isFinite(amount) || amount === 0) {
+    throw new Error("Payment amount must not be zero.");
+  }
+
   const payload = await readBudgetPayload();
   const current = normalizeRecord(campaignId, payload.budgets[campaignId]);
 

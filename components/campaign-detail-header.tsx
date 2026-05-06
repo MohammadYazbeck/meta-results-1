@@ -114,11 +114,25 @@ function MobileStatsRail({
 }
 
 function getCampaignStatusMeta(status?: string) {
-  const isActive = status === "ACTIVE";
+  const normalizedStatus = status?.toUpperCase();
+
+  if (normalizedStatus === "ACTIVE") {
+    return {
+      className: "text-[#1d9c58]",
+      label: "الحملة نشطة",
+    };
+  }
+
+  if (normalizedStatus === "COMPLETED") {
+    return {
+      className: "text-[#6e6e73]",
+      label: "الحملة مكتملة",
+    };
+  }
 
   return {
-    className: isActive ? "text-[#1d9c58]" : "text-[#b42318]",
-    label: isActive ? "الحملة نشطة" : "الحملة غير نشطة",
+    className: "text-[#b42318]",
+    label: "الحملة غير نشطة",
   };
 }
 
@@ -241,12 +255,6 @@ export function CampaignDetailHeader({
           <MobileStatsRail title="معلومات الحملة">
             <MobileStatCard label="الفترة" value={rangeLabel} wide />
             <MobileStatCard
-              label="المجموعات"
-              value={new Intl.NumberFormat("en-US").format(
-                campaign.adSets.length
-              )}
-            />
-            <MobileStatCard
               label="الإعلانات"
               value={new Intl.NumberFormat("en-US").format(totalAds)}
             />
@@ -303,12 +311,6 @@ export function CampaignDetailHeader({
           <SectionLabel>معلومات الحملة</SectionLabel>
           <DetailStatsGrid>
             <DetailStat label="الفترة" value={rangeLabel} />
-            <DetailStat
-              label="المجموعات"
-              value={new Intl.NumberFormat("en-US").format(
-                campaign.adSets.length
-              )}
-            />
             <DetailStat
               label="الإعلانات"
               value={new Intl.NumberFormat("en-US").format(totalAds)}

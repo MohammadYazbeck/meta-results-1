@@ -91,13 +91,12 @@ export default async function CampaignDetailPage({ params }: PageProps) {
                   <p className="m-0 text-sm text-muted">{rangeLabel}</p>
                   <div className="flex flex-wrap gap-2 sm:justify-end">
                     <HierarchyBadge variant="campaign">Campaign</HierarchyBadge>
-                    <HierarchyBadge variant="adSet">Ad Set</HierarchyBadge>
                     <HierarchyBadge variant="ad">Ad</HierarchyBadge>
                   </div>
                 </div>
               }
               eyebrow="الأداء"
-              title="المجموعات والإعلانات"
+              title="الإعلانات"
             />
 
             <CampaignHierarchy adSets={campaign.adSets} />

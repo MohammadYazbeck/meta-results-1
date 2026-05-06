@@ -6,6 +6,7 @@ import { SpendChart } from "@/components/spend-chart";
 import { ErrorPanel } from "@/components/ui/error-panel";
 import { PageScene } from "@/components/ui/page-scene";
 import { getAllCampaignBudgets } from "@/lib/budget-store";
+import { getArchivedCampaigns } from "@/lib/campaign-archive-store";
 import {
   getEmptySpendDashboardData,
   getDefaultDateRange,
@@ -23,9 +24,74 @@ function getSingleValue(value?: string | string[]) {
   return Array.isArray(value) ? value[0] : value;
 }
 
+function buildVisibleSummary(
+  summary: SpendDashboardData["summary"],
+  campaigns: SpendDashboardData["campaigns"],
+  daily: SpendDashboardData["daily"],
+) {
+  const totalSpend = Math.round(
+    campaigns.reduce((sum, campaign) => sum + campaign.totalSpend, 0) * 100,
+  ) / 100;
+  const totalSpendInRange = Math.round(
+    daily.reduce((sum, entry) => sum + entry.spend, 0) * 100,
+  ) / 100;
+  const topCampaign = campaigns[0];
+
+  return {
+    ...summary,
+    averageDailySpend: summary.daysInRange
+      ? Math.round((totalSpendInRange / summary.daysInRange) * 100) / 100
+      : 0,
+    topCampaignName: topCampaign?.campaignName || "No campaign data",
+    topCampaignSpend: topCampaign?.totalSpend || 0,
+    totalCampaigns: campaigns.length,
+    totalSpend,
+    totalSpendInRange,
+  };
+}
+
+function buildVisibleDailySpend(
+  daily: SpendDashboardData["daily"],
+  campaignDaily: SpendDashboardData["campaignDaily"],
+  campaigns: SpendDashboardData["campaigns"],
+) {
+  const visibleCampaignIds = new Set(
+    campaigns.map((campaign) => campaign.campaignId),
+  );
+  const dailyMap = new Map(daily.map((entry) => [entry.date, 0]));
+
+  for (const entry of campaignDaily) {
+    if (!visibleCampaignIds.has(entry.campaignId)) {
+      continue;
+    }
+
+    dailyMap.set(
+      entry.date,
+      Math.round(((dailyMap.get(entry.date) || 0) + entry.spend) * 100) / 100,
+    );
+  }
+
+  return daily.map((entry) => ({
+    date: entry.date,
+    spend: Math.round((dailyMap.get(entry.date) || 0) * 100) / 100,
+  }));
+}
+
+function getBudgetTotalForCampaigns(
+  budgets: Awaited<ReturnType<typeof getAllCampaignBudgets>>,
+  campaigns: SpendDashboardData["campaigns"],
+) {
+  return campaigns.reduce(
+    (sum, campaign) =>
+      sum + (budgets[campaign.campaignId]?.totalPaid ?? 0),
+    0,
+  );
+}
+
 export default async function HomePage({ searchParams }: PageProps) {
   const resolvedSearchParams = (await searchParams) ?? {};
   const fallbackRange = getDefaultDateRange();
+  const query = (getSingleValue(resolvedSearchParams.q) ?? "").trim();
   const range = sanitizeDateRange(
     getSingleValue(resolvedSearchParams.start) ?? fallbackRange.start,
     getSingleValue(resolvedSearchParams.end) ?? fallbackRange.end,
@@ -44,11 +110,23 @@ export default async function HomePage({ searchParams }: PageProps) {
   }
 
   const budgets = await getAllCampaignBudgets();
-  const totalPaid = Object.values(budgets).reduce(
-    (sum, budget) => sum + budget.totalPaid,
-    0,
+  const archivedCampaigns = await getArchivedCampaigns();
+  const archivedCampaignIds = new Set(Object.keys(archivedCampaigns));
+  const activeCampaigns = data.campaigns.filter(
+    (campaign) => !archivedCampaignIds.has(campaign.campaignId),
   );
-  const remaining = Math.round((totalPaid - data.summary.totalSpend) * 100) / 100;
+  const visibleDaily = buildVisibleDailySpend(
+    data.daily,
+    data.campaignDaily,
+    activeCampaigns,
+  );
+  const visibleSummary = buildVisibleSummary(
+    data.summary,
+    activeCampaigns,
+    visibleDaily,
+  );
+  const totalPaid = getBudgetTotalForCampaigns(budgets, activeCampaigns);
+  const remaining = Math.round((totalPaid - visibleSummary.totalSpend) * 100) / 100;
   const rangeLabel = getSuggestedRangeLabel(data.range);
 
   return (
@@ -73,18 +151,25 @@ export default async function HomePage({ searchParams }: PageProps) {
 
         <DashboardSummaryGrid
           remaining={remaining}
-          summary={data.summary}
+          summary={visibleSummary}
           totalPaid={totalPaid}
         />
 
         <section className="mb-6">
-          <SpendChart daily={data.daily} />
+          <SpendChart daily={visibleDaily} />
         </section>
 
-      <CampaignTable
-        budgets={budgets}
-        campaigns={data.campaigns}
-      />
+        <CampaignTable
+          archivedCount={Object.keys(archivedCampaigns).length}
+          budgets={budgets}
+          campaigns={activeCampaigns}
+          emptyMessage="لا توجد بيانات حملات غير مؤرشفة لهذه الفترة."
+          initialQuery={query}
+          range={data.range}
+          searchEmptyMessage="لا توجد حملات مطابقة لهذا البحث."
+          secondaryHref="/archive"
+          secondaryLabel="الحملات المؤرشفة"
+        />
       </PageScene>
     </main>
   );

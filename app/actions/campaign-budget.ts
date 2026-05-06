@@ -8,7 +8,7 @@ import { addCampaignPayment } from "@/lib/budget-store";
 
 function normalizeCurrencyInput(input: FormDataEntryValue | null) {
   const parsed = Number.parseFloat(String(input ?? "0"));
-  return Number.isFinite(parsed) && parsed >= 0 ? parsed : 0;
+  return Number.isFinite(parsed) ? parsed : 0;
 }
 
 export async function saveCampaignBudgetAction(formData: FormData) {
@@ -25,8 +25,8 @@ export async function saveCampaignBudgetAction(formData: FormData) {
     throw new Error("Campaign ID is required to save budget.");
   }
 
-  if (paymentAmount <= 0) {
-    throw new Error("Payment amount must be greater than zero.");
+  if (paymentAmount === 0) {
+    throw new Error("Payment amount must not be zero.");
   }
 
   await addCampaignPayment(campaignId, paymentAmount);
