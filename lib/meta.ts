@@ -8,11 +8,50 @@ const MESSAGES_ALIASES = [
   "messaging_conversation_started",
 ];
 const FOLLOWERS_ALIASES = [
+  "ig_follow",
+  "ig_follows",
+  "ig_profile_follow",
+  "instagram_follow",
+  "instagram_follows",
+  "instagram_profile_follow",
   "omni_follow",
   "follow",
+  "follows",
+  "post_save",
   "profile_follow",
-  "instagram_profile_follow",
 ];
+const FACEBOOK_PAGE_LIKE_ACTION_TYPES = [
+  "like",
+];
+const PROFILE_VISIT_ALIASES = [
+  "business_profile_view",
+  "business_profile_views",
+  "ig_profile_visit",
+  "ig_profile_visits",
+  "ig_profile_view",
+  "ig_profile_views",
+  "instagram_business_profile_view",
+  "instagram_business_profile_views",
+  "instagram_profile_visit",
+  "instagram_profile_visits",
+  "instagram_profile_view",
+  "instagram_profile_views",
+  "omni_profile_visit",
+  "omni_profile_visits",
+  "omni_profile_view",
+  "omni_profile_views",
+  "page_profile_visit",
+  "page_profile_visits",
+  "page_profile_view",
+  "page_profile_views",
+  "profile_visit",
+  "profile_visits",
+  "profile_view",
+  "profile_views",
+  "visit_instagram_profile",
+];
+const AD_CREATIVE_FIELDS =
+  "id,status,effective_status,created_time,updated_time,creative{id,thumbnail_url,image_url,link_url,object_url,effective_object_story_id,object_story_id,instagram_permalink_url,object_story_spec}";
 const metaResponseCache = new Map<string, { expiresAt: number; value: unknown }>();
 
 export type DateRange = {
@@ -35,8 +74,56 @@ type MetaInsightsRow = {
   campaign_name?: string;
   date_start?: string;
   impressions?: string;
+  publisher_platform?: string;
   reach?: string;
   spend?: string;
+};
+
+type MetaCreativeCallToAction = {
+  value?: {
+    link?: string;
+  };
+};
+
+type MetaCreativeStorySpec = {
+  link_data?: {
+    call_to_action?: MetaCreativeCallToAction;
+    link?: string;
+  };
+  template_data?: {
+    call_to_action?: MetaCreativeCallToAction;
+    child_attachments?: Array<{
+      image_url?: string;
+      link?: string;
+      picture?: string;
+    }>;
+    link?: string;
+  };
+  video_data?: {
+    call_to_action?: MetaCreativeCallToAction;
+    image_url?: string;
+  };
+};
+
+type MetaAdCreative = {
+  effective_object_story_id?: string;
+  id?: string;
+  image_url?: string;
+  instagram_permalink_url?: string;
+  link_url?: string;
+  object_story_id?: string;
+  object_story_spec?: MetaCreativeStorySpec;
+  object_url?: string;
+  thumbnail_url?: string;
+};
+
+type MetaAdEntity = {
+  created_time?: string;
+  creative?: MetaAdCreative;
+  effective_status?: string;
+  id: string;
+  status?: string;
+  updated_time?: string;
 };
 
 type MetaEntity = {
@@ -58,10 +145,14 @@ type MetaPage<T> = {
   };
 };
 
+type AdDeliveryPlatform = "facebook" | "instagram";
+
 export type MetricTotals = {
+  facebookPageLikes: number;
   followers: number;
   impressions: number;
   messages: number;
+  profileVisits: number;
   reach: number;
   spend: number;
 };
@@ -104,9 +195,30 @@ export type SpendDashboardData = {
 };
 
 export type AdPerformance = MetricTotals & {
+  createdAt?: string;
+  creativeId?: string;
+  deliveryPlatform?: AdDeliveryPlatform;
+  destinationUrl?: string;
+  facebookPermalinkUrl?: string;
   id: string;
+  instagramPermalinkUrl?: string;
+  isPermalinkPlatformInferred?: boolean;
   name: string;
+  permalinkUrl?: string;
+  status?: string;
+  thumbnailUrl?: string;
 };
+
+type AdCreativeLinkData = Pick<
+  AdPerformance,
+  | "createdAt"
+  | "creativeId"
+  | "destinationUrl"
+  | "facebookPermalinkUrl"
+  | "instagramPermalinkUrl"
+  | "status"
+  | "thumbnailUrl"
+>;
 
 export type AdSetPerformance = MetricTotals & {
   ads: AdPerformance[];
@@ -129,7 +241,10 @@ export type CampaignDebugData = {
   campaignId: string;
   campaignMatched: boolean;
   campaignName: string;
+  facebookPageLikeActionTypes: string[];
+  followerAliases: string[];
   messageAliases: string[];
+  profileVisitAliases: string[];
   rows: {
     ads: CampaignDebugInsightRow[];
     adSets: CampaignDebugInsightRow[];
@@ -165,8 +280,10 @@ export type CampaignDebugData = {
 
 type CampaignDebugAction = {
   actionType: string;
+  countedAsFacebookPageLike: boolean;
   countedAsFollower: boolean;
   countedAsMessage: boolean;
+  countedAsProfileVisit: boolean;
   rawValue: string;
   value: number;
 };
@@ -296,6 +413,7 @@ function buildAccountEdgeUrl(edge: "campaigns" | "adsets" | "ads", fields: strin
 }
 
 function buildAccountInsightsUrl(options: {
+  breakdowns?: string[];
   datePreset?: string;
   fields: string;
   level: "campaign" | "adset" | "ad";
@@ -323,7 +441,31 @@ function buildAccountInsightsUrl(options: {
     url.searchParams.set("date_preset", options.datePreset);
   }
 
+  if (options.breakdowns?.length) {
+    url.searchParams.set("breakdowns", options.breakdowns.join(","));
+  }
+
+  if (options.fields.split(",").some((field) => field.trim() === "actions")) {
+    url.searchParams.set("action_breakdowns", "action_type");
+  }
+
   return url.toString();
+}
+
+function normalizeUrl(value?: string) {
+  const normalized = value?.trim();
+
+  return normalized || undefined;
+}
+
+function buildFacebookStoryUrl(storyId?: string) {
+  const normalizedStoryId = storyId?.trim();
+
+  if (!normalizedStoryId) {
+    return undefined;
+  }
+
+  return `https://www.facebook.com/${encodeURIComponent(normalizedStoryId)}`;
 }
 
 function actionTypeMatches(actionType: string, aliases: string[]) {
@@ -335,6 +477,22 @@ function actionTypeMatches(actionType: string, aliases: string[]) {
       normalized.startsWith(`${alias}_`) ||
       normalized.endsWith(`_${alias}`) ||
       normalized.includes(`.${alias}`),
+  );
+}
+
+function actionTypeExactMatches(actionType: string, actionTypes: string[]) {
+  const normalized = actionType.toLowerCase();
+
+  return actionTypes.some((candidate) => normalized === candidate);
+}
+
+function isProfileVisitActionType(actionType: string) {
+  const normalized = actionType.toLowerCase();
+
+  return (
+    actionTypeMatches(normalized, PROFILE_VISIT_ALIASES) ||
+    (normalized.includes("profile") &&
+      (normalized.includes("visit") || normalized.includes("view")))
   );
 }
 
@@ -354,11 +512,45 @@ function sumActionValues(actions: MetaActionStat[] | undefined, aliases: string[
   );
 }
 
+function sumExactActionValues(actions: MetaActionStat[] | undefined, actionTypes: string[]) {
+  if (!actions?.length) {
+    return 0;
+  }
+
+  return roundCount(
+    actions.reduce((sum, action) => {
+      if (!action.action_type || !actionTypeExactMatches(action.action_type, actionTypes)) {
+        return sum;
+      }
+
+      return sum + parseNumericValue(action.value);
+    }, 0),
+  );
+}
+
+function sumProfileVisitActionValues(actions: MetaActionStat[] | undefined) {
+  if (!actions?.length) {
+    return 0;
+  }
+
+  return roundCount(
+    actions.reduce((sum, action) => {
+      if (!action.action_type || !isProfileVisitActionType(action.action_type)) {
+        return sum;
+      }
+
+      return sum + parseNumericValue(action.value);
+    }, 0),
+  );
+}
+
 function metricsFromInsights(row?: MetaInsightsRow): MetricTotals {
   return {
+    facebookPageLikes: sumExactActionValues(row?.actions, FACEBOOK_PAGE_LIKE_ACTION_TYPES),
     followers: sumActionValues(row?.actions, FOLLOWERS_ALIASES),
     impressions: roundCount(parseNumericValue(row?.impressions)),
     messages: sumActionValues(row?.actions, MESSAGES_ALIASES),
+    profileVisits: sumProfileVisitActionValues(row?.actions),
     reach: roundCount(parseNumericValue(row?.reach)),
     spend: roundCurrency(convertAccountCurrencyAmount(parseNumericValue(row?.spend))),
   };
@@ -370,8 +562,12 @@ function debugActionsFromInsights(row: MetaInsightsRow): CampaignDebugAction[] {
 
     return {
       actionType,
+      countedAsFacebookPageLike: actionType
+        ? actionTypeExactMatches(actionType, FACEBOOK_PAGE_LIKE_ACTION_TYPES)
+        : false,
       countedAsFollower: actionType ? actionTypeMatches(actionType, FOLLOWERS_ALIASES) : false,
       countedAsMessage: actionType ? actionTypeMatches(actionType, MESSAGES_ALIASES) : false,
+      countedAsProfileVisit: actionType ? isProfileVisitActionType(actionType) : false,
       rawValue: action.value || "0",
       value: parseNumericValue(action.value),
     };
@@ -399,11 +595,172 @@ function debugRowFromInsights(
   };
 }
 
+function getCreativeThumbnailUrl(creative?: MetaAdCreative) {
+  const childAttachment = creative?.object_story_spec?.template_data?.child_attachments?.find(
+    (attachment) => attachment.image_url || attachment.picture,
+  );
+
+  return (
+    normalizeUrl(creative?.thumbnail_url) ||
+    normalizeUrl(creative?.image_url) ||
+    normalizeUrl(creative?.object_story_spec?.video_data?.image_url) ||
+    normalizeUrl(childAttachment?.image_url) ||
+    normalizeUrl(childAttachment?.picture)
+  );
+}
+
+function getCreativeDestinationUrl(creative?: MetaAdCreative) {
+  const storySpec = creative?.object_story_spec;
+  const childAttachment = storySpec?.template_data?.child_attachments?.find(
+    (attachment) => attachment.link,
+  );
+
+  return (
+    normalizeUrl(creative?.link_url) ||
+    normalizeUrl(creative?.object_url) ||
+    normalizeUrl(storySpec?.link_data?.link) ||
+    normalizeUrl(storySpec?.link_data?.call_to_action?.value?.link) ||
+    normalizeUrl(storySpec?.video_data?.call_to_action?.value?.link) ||
+    normalizeUrl(storySpec?.template_data?.link) ||
+    normalizeUrl(storySpec?.template_data?.call_to_action?.value?.link) ||
+    normalizeUrl(childAttachment?.link)
+  );
+}
+
+function getRecognizedPublisherPlatform(platform?: string): AdDeliveryPlatform | undefined {
+  const normalized = platform?.toLowerCase();
+
+  if (normalized === "facebook" || normalized === "instagram") {
+    return normalized;
+  }
+
+  return undefined;
+}
+
+function getAdDisplayStatus(ad?: MetaAdEntity) {
+  return (ad?.effective_status || ad?.status)?.toUpperCase();
+}
+
+function getAdPermalinkChoice(creative?: AdCreativeLinkData, platform?: AdDeliveryPlatform) {
+  const facebookUrl = creative?.facebookPermalinkUrl;
+  const instagramUrl = creative?.instagramPermalinkUrl;
+
+  if (platform === "instagram") {
+    return {
+      isInferred: !instagramUrl && Boolean(facebookUrl),
+      url: instagramUrl || facebookUrl,
+    };
+  }
+
+  if (platform === "facebook") {
+    return {
+      isInferred: !facebookUrl && Boolean(instagramUrl),
+      url: facebookUrl || instagramUrl,
+    };
+  }
+
+  if (facebookUrl && !instagramUrl) {
+    return {
+      isInferred: false,
+      url: facebookUrl,
+    };
+  }
+
+  if (instagramUrl && !facebookUrl) {
+    return {
+      isInferred: false,
+      url: instagramUrl,
+    };
+  }
+
+  return {
+    isInferred: Boolean(facebookUrl || instagramUrl),
+    url: facebookUrl || instagramUrl,
+  };
+}
+
+function buildAdCreativeMap(ads: MetaAdEntity[]) {
+  const creativeMap = new Map<string, AdCreativeLinkData>();
+
+  for (const ad of ads) {
+    const facebookPermalinkUrl = buildFacebookStoryUrl(
+      ad.creative?.effective_object_story_id || ad.creative?.object_story_id,
+    );
+    const instagramPermalinkUrl = normalizeUrl(ad.creative?.instagram_permalink_url);
+
+    creativeMap.set(ad.id, {
+      createdAt: ad.created_time || ad.updated_time,
+      creativeId: ad.creative?.id,
+      destinationUrl: getCreativeDestinationUrl(ad.creative),
+      facebookPermalinkUrl,
+      instagramPermalinkUrl,
+      status: getAdDisplayStatus(ad),
+      thumbnailUrl: getCreativeThumbnailUrl(ad.creative),
+    });
+  }
+
+  return creativeMap;
+}
+
+function buildAdPlatformMap(rows: MetaInsightsRow[]) {
+  const platformStats = new Map<
+    string,
+    Record<AdDeliveryPlatform, { impressions: number; reach: number; spend: number }>
+  >();
+
+  for (const row of rows) {
+    if (!row.ad_id) {
+      continue;
+    }
+
+    const platform = getRecognizedPublisherPlatform(row.publisher_platform);
+
+    if (!platform) {
+      continue;
+    }
+
+    const current =
+      platformStats.get(row.ad_id) ||
+      {
+        facebook: { impressions: 0, reach: 0, spend: 0 },
+        instagram: { impressions: 0, reach: 0, spend: 0 },
+      };
+
+    current[platform].spend += parseNumericValue(row.spend);
+    current[platform].impressions += parseNumericValue(row.impressions);
+    current[platform].reach += parseNumericValue(row.reach);
+    platformStats.set(row.ad_id, current);
+  }
+
+  const platformMap = new Map<string, AdDeliveryPlatform>();
+
+  for (const [adId, stats] of platformStats) {
+    const facebookScore =
+      stats.facebook.spend > 0
+        ? stats.facebook.spend
+        : stats.facebook.impressions || stats.facebook.reach;
+    const instagramScore =
+      stats.instagram.spend > 0
+        ? stats.instagram.spend
+        : stats.instagram.impressions || stats.instagram.reach;
+
+    if (facebookScore === 0 && instagramScore === 0) {
+      continue;
+    }
+
+    platformMap.set(adId, instagramScore > facebookScore ? "instagram" : "facebook");
+  }
+
+  return platformMap;
+}
+
 function zeroTotals(): MetricTotals {
   return {
+    facebookPageLikes: 0,
     followers: 0,
     impressions: 0,
     messages: 0,
+    profileVisits: 0,
     reach: 0,
     spend: 0,
   };
@@ -411,9 +768,11 @@ function zeroTotals(): MetricTotals {
 
 function mergeTotals(base: MetricTotals, next: MetricTotals): MetricTotals {
   return {
+    facebookPageLikes: roundCount(base.facebookPageLikes + next.facebookPageLikes),
     followers: roundCount(base.followers + next.followers),
     impressions: roundCount(base.impressions + next.impressions),
     messages: roundCount(base.messages + next.messages),
+    profileVisits: roundCount(base.profileVisits + next.profileVisits),
     reach: roundCount(base.reach + next.reach),
     spend: roundCurrency(base.spend + next.spend),
   };
@@ -435,9 +794,11 @@ function reconcileParentCountTotals(
 
   return {
     ...parent,
+    facebookPageLikes: Math.max(parent.facebookPageLikes, childTotals.facebookPageLikes),
     followers: Math.max(parent.followers, childTotals.followers),
     impressions: Math.max(parent.impressions, childTotals.impressions),
     messages: childTotals.messages,
+    profileVisits: Math.max(parent.profileVisits, childTotals.profileVisits),
     reach: Math.max(parent.reach, getMaxMetric(children, "reach")),
   };
 }
@@ -445,9 +806,11 @@ function reconcileParentCountTotals(
 function reconcileSingleAdWithAdSet(ad: AdPerformance, adSetTotals: MetricTotals): AdPerformance {
   return {
     ...ad,
+    facebookPageLikes: Math.max(ad.facebookPageLikes, adSetTotals.facebookPageLikes),
     followers: Math.max(ad.followers, adSetTotals.followers),
     impressions: Math.max(ad.impressions, adSetTotals.impressions),
     messages: Math.max(ad.messages, adSetTotals.messages),
+    profileVisits: Math.max(ad.profileVisits, adSetTotals.profileVisits),
     reach: Math.max(ad.reach, adSetTotals.reach),
     spend: Math.max(ad.spend, adSetTotals.spend),
   };
@@ -704,6 +1067,8 @@ function buildCampaignHierarchyFromInsights(
   campaignId: string,
   adSetInsights: MetaInsightsRow[],
   adInsights: MetaInsightsRow[],
+  adCreativeMap = new Map<string, AdCreativeLinkData>(),
+  adPlatformMap = new Map<string, AdDeliveryPlatform>(),
 ) {
   const hierarchy = new Map<string, AdSetPerformance>();
 
@@ -725,10 +1090,17 @@ function buildCampaignHierarchyFromInsights(
       continue;
     }
 
+    const creative = adCreativeMap.get(row.ad_id);
+    const deliveryPlatform = adPlatformMap.get(row.ad_id);
+    const permalinkChoice = getAdPermalinkChoice(creative, deliveryPlatform);
     const ad: AdPerformance = {
       ...metricsFromInsights(row),
+      ...creative,
+      deliveryPlatform,
       id: row.ad_id,
+      isPermalinkPlatformInferred: permalinkChoice.isInferred,
       name: row.ad_name || `Ad ${row.ad_id}`,
+      permalinkUrl: permalinkChoice.url,
     };
 
     const currentAdSet =
@@ -753,15 +1125,19 @@ function buildCampaignHierarchyFromInsights(
       const levelTotals =
         adSet.ads.length > 0 &&
         adSet.spend === 0 &&
+        adSet.facebookPageLikes === 0 &&
         adSet.impressions === 0 &&
         adSet.messages === 0 &&
+        adSet.profileVisits === 0 &&
         adSet.followers === 0 &&
         adSet.reach === 0
           ? rawAdsTotals
           : {
+              facebookPageLikes: adSet.facebookPageLikes,
               followers: adSet.followers,
               impressions: adSet.impressions,
               messages: adSet.messages,
+              profileVisits: adSet.profileVisits,
               reach: adSet.reach,
               spend: adSet.spend,
             };
@@ -787,6 +1163,38 @@ function buildCampaignHierarchyFromInsights(
       };
     })
     .sort((left, right) => right.spend - left.spend);
+}
+
+async function fetchAdCreativeRows() {
+  try {
+    return await fetchAllPages<MetaAdEntity>(buildAccountEdgeUrl("ads", AD_CREATIVE_FIELDS));
+  } catch (error) {
+    console.warn(
+      "Meta ad creative fetch failed; continuing without ad thumbnails.",
+      error instanceof Error ? error.message : error,
+    );
+    return [];
+  }
+}
+
+async function fetchAdPlatformRows() {
+  try {
+    return await fetchAllPages<MetaInsightsRow>(
+      buildAccountInsightsUrl({
+        breakdowns: ["publisher_platform"],
+        datePreset: "maximum",
+        fields: "campaign_id,ad_id,spend,impressions,reach",
+        level: "ad",
+        timeIncrement: "all_days",
+      }),
+    );
+  } catch (error) {
+    console.warn(
+      "Meta ad platform fetch failed; continuing with creative link fallback.",
+      error instanceof Error ? error.message : error,
+    );
+    return [];
+  }
 }
 
 export async function getSpendDashboardData(inputRange?: Partial<DateRange>) {
@@ -834,7 +1242,15 @@ export async function getCampaignDetailData(
     return getEmptyCampaignDetailData(campaignId, fallbackRange);
   }
 
-  const [campaigns, campaignDailyRows, lifetimeRows, adSetInsights, adInsights] = await Promise.all([
+  const [
+    campaigns,
+    campaignDailyRows,
+    lifetimeRows,
+    adSetInsights,
+    adInsights,
+    adsWithCreative,
+    adPlatformRows,
+  ] = await Promise.all([
     fetchAllPages<MetaEntity>(
       buildAccountEdgeUrl(
         "campaigns",
@@ -874,11 +1290,21 @@ export async function getCampaignDetailData(
         timeIncrement: "all_days",
       }),
     ),
+    fetchAdCreativeRows(),
+    fetchAdPlatformRows(),
   ]);
 
   const lifetimeRow = lifetimeRows.find((row) => row.campaign_id === campaignId);
   const campaignEntity = campaigns.find((campaign) => campaign.id === campaignId);
-  const hierarchy = buildCampaignHierarchyFromInsights(campaignId, adSetInsights, adInsights);
+  const adCreativeMap = buildAdCreativeMap(adsWithCreative);
+  const adPlatformMap = buildAdPlatformMap(adPlatformRows);
+  const hierarchy = buildCampaignHierarchyFromInsights(
+    campaignId,
+    adSetInsights,
+    adInsights,
+    adCreativeMap,
+    adPlatformMap,
+  );
   const hierarchyTotals = hierarchy.reduce((sum, adSet) => mergeTotals(sum, adSet), zeroTotals());
   const totals = reconcileParentCountTotals(
     lifetimeRow ? metricsFromInsights(lifetimeRow) : hierarchyTotals,
@@ -915,7 +1341,10 @@ export async function getCampaignDebugData(campaignId: string): Promise<Campaign
       campaignId,
       campaignMatched: false,
       campaignName: `Campaign ${campaignId}`,
+      facebookPageLikeActionTypes: FACEBOOK_PAGE_LIKE_ACTION_TYPES,
+      followerAliases: FOLLOWERS_ALIASES,
       messageAliases: MESSAGES_ALIASES,
+      profileVisitAliases: PROFILE_VISIT_ALIASES,
       rows: {
         ads: [],
         adSets: [],
@@ -1003,7 +1432,10 @@ export async function getCampaignDebugData(campaignId: string): Promise<Campaign
     campaignId,
     campaignMatched: Boolean(campaignInsight),
     campaignName: campaignInsight?.campaign_name || `Campaign ${campaignId}`,
+    facebookPageLikeActionTypes: FACEBOOK_PAGE_LIKE_ACTION_TYPES,
+    followerAliases: FOLLOWERS_ALIASES,
     messageAliases: MESSAGES_ALIASES,
+    profileVisitAliases: PROFILE_VISIT_ALIASES,
     rows: {
       ads: filteredAds.map((item) => debugRowFromInsights("ad", item)),
       adSets: filteredAdSets.map((item) => debugRowFromInsights("adset", item)),

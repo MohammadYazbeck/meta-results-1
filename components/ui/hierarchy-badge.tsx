@@ -5,6 +5,7 @@ import { cn } from "@/lib/utils";
 type HierarchyBadgeProps = {
   children: ReactNode;
   className?: string;
+  tone?: "default" | "muted";
   variant: "campaign" | "adSet" | "ad";
 };
 
@@ -20,20 +21,26 @@ const dotStyles = {
   campaign: "bg-accent",
 } as const;
 
+const mutedBadgeStyle = "border-[#8e8e93]/18 bg-[#8e8e93]/10 text-[#6e6e73]";
+const mutedDotStyle = "bg-[#8e8e93]";
+
 export function HierarchyBadge({
   children,
   className,
+  tone = "default",
   variant,
 }: HierarchyBadgeProps) {
+  const isMuted = tone === "muted";
+
   return (
     <span
       className={cn(
         "inline-flex w-fit items-center gap-2 rounded-full border px-3 py-1 text-[11px] font-semibold uppercase ",
-        badgeStyles[variant],
+        isMuted ? mutedBadgeStyle : badgeStyles[variant],
         className
       )}
     >
-      <span className={cn("h-2 w-2 rounded-full", dotStyles[variant])} />
+      <span className={cn("h-2 w-2 rounded-full", isMuted ? mutedDotStyle : dotStyles[variant])} />
       {children}
     </span>
   );

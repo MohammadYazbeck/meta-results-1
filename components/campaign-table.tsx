@@ -208,6 +208,7 @@ export function CampaignTable({
 }: CampaignTableProps) {
   const router = useRouter();
   const [query, setQuery] = useState(initialQuery);
+  const [negativeRemainingOnly, setNegativeRemainingOnly] = useState(false);
   const [archiveError, setArchiveError] = useState<string | null>(null);
   const [currentArchivedCount, setCurrentArchivedCount] = useState(
     archivedCount ?? 0,
@@ -229,15 +230,38 @@ export function CampaignTable({
     [campaigns, hiddenCampaignIds],
   );
   const visibleCampaigns = useMemo(() => {
-    if (!normalizedQuery) {
-      return liveCampaigns;
+    const searchedCampaigns = normalizedQuery
+      ? liveCampaigns.filter((campaign) =>
+          campaign.campaignName.toLowerCase().includes(normalizedQuery),
+        )
+      : liveCampaigns;
+
+    if (mode !== "active" || !negativeRemainingOnly) {
+      return searchedCampaigns;
     }
 
-    return liveCampaigns.filter((campaign) =>
-      campaign.campaignName.toLowerCase().includes(normalizedQuery),
-    );
-  }, [liveCampaigns, normalizedQuery]);
-  const resolvedEmptyMessage = normalizedQuery ? searchEmptyMessage : emptyMessage;
+    return searchedCampaigns.filter((campaign) => {
+      const totalPaid = budgets[campaign.campaignId]?.totalPaid ?? 0;
+      return getRemaining(totalPaid, campaign.totalSpend) < 0;
+    });
+  }, [budgets, liveCampaigns, mode, negativeRemainingOnly, normalizedQuery]);
+  const resolvedEmptyMessage = normalizedQuery
+    ? searchEmptyMessage
+    : negativeRemainingOnly && mode === "active"
+      ? "لا توجد حملات بمتبقٍ سالب."
+      : emptyMessage;
+  const negativeFilterControl =
+    mode === "active" ? (
+      <label className="inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-full border border-black/[0.06] bg-white/78 px-4 py-2 text-sm font-medium text-ink shadow-[inset_0_1px_0_rgba(255,255,255,0.88)]">
+        <input
+          checked={negativeRemainingOnly}
+          className="h-4 w-4 accent-[#b42318]"
+          onChange={(event) => setNegativeRemainingOnly(event.target.checked)}
+          type="checkbox"
+        />
+        عرض المتبقي السالب فقط
+      </label>
+    ) : null;
 
   function openCampaign(campaign: CampaignSpend) {
     router.push(`/${campaign.campaignId}`);
@@ -346,7 +370,7 @@ export function CampaignTable({
     <>
       <section className={cn(listingPanelClassName, "mb-6 p-4 sm:p-5")}>
         <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
-          <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
+          <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end">
             <label className="grid gap-2">
               <span className="text-sm font-medium text-muted">
                 البحث باسم الحملة
@@ -364,15 +388,18 @@ export function CampaignTable({
               </span>
             </label>
 
-            {query ? (
-              <Link
-                className={quietButtonClassName}
-                href={buildClearHref(actionPath, range)}
-                onClick={() => setQuery("")}
-              >
-                مسح البحث
-              </Link>
-            ) : null}
+            <div className="flex flex-col gap-2 sm:items-end">
+              {negativeFilterControl}
+              {query ? (
+                <Link
+                  className={quietButtonClassName}
+                  href={buildClearHref(actionPath, range)}
+                  onClick={() => setQuery("")}
+                >
+                  مسح البحث
+                </Link>
+              ) : null}
+            </div>
           </div>
 
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center lg:justify-end">

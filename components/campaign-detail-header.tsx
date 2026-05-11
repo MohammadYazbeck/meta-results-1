@@ -268,9 +268,15 @@ export function CampaignDetailHeader({
               )}
             />
             <MobileStatCard
-              label="المتابعون"
+              label="متابعو إنستغرام"
               value={new Intl.NumberFormat("en-US").format(
                 campaign.totals.followers
+              )}
+            />
+            <MobileStatCard
+              label="إعجابات صفحة فيسبوك"
+              value={new Intl.NumberFormat("en-US").format(
+                campaign.totals.facebookPageLikes
               )}
             />
             <MobileStatCard
@@ -320,7 +326,7 @@ export function CampaignDetailHeader({
 
         <div className="order-6 hidden md:block">
           <SectionLabel>المقاييس العددية</SectionLabel>
-          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
             <DetailStat
               label="الرسائل"
               value={new Intl.NumberFormat("en-US").format(
@@ -328,9 +334,15 @@ export function CampaignDetailHeader({
               )}
             />
             <DetailStat
-              label="المتابعون"
+              label="متابعو إنستغرام"
               value={new Intl.NumberFormat("en-US").format(
                 campaign.totals.followers
+              )}
+            />
+            <DetailStat
+              label="إعجابات صفحة فيسبوك"
+              value={new Intl.NumberFormat("en-US").format(
+                campaign.totals.facebookPageLikes
               )}
             />
             <DetailStat
