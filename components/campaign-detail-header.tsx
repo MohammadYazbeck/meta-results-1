@@ -116,6 +116,13 @@ function MobileStatsRail({
 function getCampaignStatusMeta(status?: string) {
   const normalizedStatus = status?.toUpperCase();
 
+  if (!normalizedStatus) {
+    return {
+      className: "text-[#6e6e73]",
+      label: "حالة الحملة غير متاحة",
+    };
+  }
+
   if (normalizedStatus === "ACTIVE") {
     return {
       className: "text-[#1d9c58]",

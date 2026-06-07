@@ -146,6 +146,14 @@ type MetaPage<T> = {
 };
 
 type AdDeliveryPlatform = "facebook" | "instagram";
+type InsightsRequestOptions = {
+  breakdowns?: string[];
+  datePreset?: string;
+  fields: string;
+  level: "campaign" | "adset" | "ad";
+  range?: DateRange;
+  timeIncrement: "1" | "all_days";
+};
 
 export type MetricTotals = {
   facebookPageLikes: number;
@@ -412,16 +420,24 @@ function buildAccountEdgeUrl(edge: "campaigns" | "adsets" | "ads", fields: strin
   return url.toString();
 }
 
-function buildAccountInsightsUrl(options: {
-  breakdowns?: string[];
-  datePreset?: string;
-  fields: string;
-  level: "campaign" | "adset" | "ad";
-  range?: DateRange;
-  timeIncrement: "1" | "all_days";
-}) {
+function buildObjectEdgeUrl(objectId: string, edge: "ads", fields: string) {
   const version = getApiVersion();
-  const url = new URL(`https://graph.facebook.com/${version}/${getAccountId()}/insights`);
+  const url = new URL(`https://graph.facebook.com/${version}/${objectId}/${edge}`);
+  url.searchParams.set("fields", fields);
+  url.searchParams.set("limit", "500");
+  return url.toString();
+}
+
+function buildGraphNodeUrl(objectId: string, fields: string) {
+  const version = getApiVersion();
+  const url = new URL(`https://graph.facebook.com/${version}/${objectId}`);
+  url.searchParams.set("fields", fields);
+  return url.toString();
+}
+
+function buildInsightsUrl(path: string, options: InsightsRequestOptions) {
+  const version = getApiVersion();
+  const url = new URL(`https://graph.facebook.com/${version}/${path}/insights`);
   url.searchParams.set("fields", options.fields);
   url.searchParams.set("level", options.level);
   url.searchParams.set("time_increment", options.timeIncrement);
@@ -450,6 +466,14 @@ function buildAccountInsightsUrl(options: {
   }
 
   return url.toString();
+}
+
+function buildAccountInsightsUrl(options: InsightsRequestOptions) {
+  return buildInsightsUrl(getAccountId(), options);
+}
+
+function buildObjectInsightsUrl(objectId: string, options: InsightsRequestOptions) {
+  return buildInsightsUrl(objectId, options);
 }
 
 function normalizeUrl(value?: string) {
@@ -895,7 +919,7 @@ export function getEmptyCampaignDetailData(
 function getLifetimeRangeFromRows(campaignId: string, rows: MetaInsightsRow[]): DateRange {
   const fallbackEnd = formatDate(new Date());
   const campaignDates = rows
-    .filter((row) => row.campaign_id === campaignId && row.date_start)
+    .filter((row) => (!row.campaign_id || row.campaign_id === campaignId) && row.date_start)
     .map((row) => row.date_start as string)
     .sort();
 
@@ -904,6 +928,28 @@ function getLifetimeRangeFromRows(campaignId: string, rows: MetaInsightsRow[]): 
   return {
     end: fallbackEnd,
     start,
+  };
+}
+
+function formatMetaDate(value?: string) {
+  if (!value) {
+    return undefined;
+  }
+
+  const timestamp = Date.parse(value);
+  return Number.isFinite(timestamp) ? formatDate(new Date(timestamp)) : undefined;
+}
+
+function getCampaignLifetimeRange(
+  campaignId: string,
+  rows: MetaInsightsRow[],
+  campaign?: MetaEntity,
+): DateRange {
+  const rowRange = getLifetimeRangeFromRows(campaignId, rows);
+
+  return {
+    ...rowRange,
+    start: formatMetaDate(campaign?.start_time) || rowRange.start,
   };
 }
 
@@ -921,6 +967,12 @@ function getCampaignDisplayStatus(campaign?: MetaEntity) {
     return undefined;
   }
 
+  const configuredStatuses = [
+    campaign.configured_status,
+    campaign.status,
+  ]
+    .filter(Boolean)
+    .map((status) => (status as string).toUpperCase());
   const statuses = [
     campaign.effective_status,
     campaign.configured_status,
@@ -931,6 +983,10 @@ function getCampaignDisplayStatus(campaign?: MetaEntity) {
 
   if (statuses.some((status) => status.includes("COMPLETED")) || isPastMetaDate(campaign.stop_time)) {
     return "COMPLETED";
+  }
+
+  if (configuredStatuses.includes("ACTIVE") || campaign.effective_status?.toUpperCase() === "ACTIVE") {
+    return "ACTIVE";
   }
 
   return statuses[0] || campaign.status;
@@ -1073,7 +1129,7 @@ function buildCampaignHierarchyFromInsights(
   const hierarchy = new Map<string, AdSetPerformance>();
 
   for (const row of adSetInsights) {
-    if (row.campaign_id !== campaignId || !row.adset_id) {
+    if ((row.campaign_id && row.campaign_id !== campaignId) || !row.adset_id) {
       continue;
     }
 
@@ -1086,7 +1142,7 @@ function buildCampaignHierarchyFromInsights(
   }
 
   for (const row of adInsights) {
-    if (row.campaign_id !== campaignId || !row.ad_id || !row.adset_id) {
+    if ((row.campaign_id && row.campaign_id !== campaignId) || !row.ad_id || !row.adset_id) {
       continue;
     }
 
@@ -1165,9 +1221,39 @@ function buildCampaignHierarchyFromInsights(
     .sort((left, right) => right.spend - left.spend);
 }
 
-async function fetchAdCreativeRows() {
+async function fetchCampaignEntity(campaignId: string) {
+  const fields = "id,name,status,effective_status,configured_status,start_time,stop_time";
+
   try {
-    return await fetchAllPages<MetaAdEntity>(buildAccountEdgeUrl("ads", AD_CREATIVE_FIELDS));
+    return await fetchMetaJson<MetaEntity>(buildGraphNodeUrl(campaignId, fields));
+  } catch (error) {
+    console.warn(
+      "Meta campaign status fetch failed; falling back to account campaigns.",
+      error instanceof Error ? error.message : error,
+    );
+    const campaigns = await fetchAllPages<MetaEntity>(buildAccountEdgeUrl("campaigns", fields));
+    return campaigns.find((campaign) => campaign.id === campaignId);
+  }
+}
+
+async function fetchCampaignScopedInsights(campaignId: string, options: InsightsRequestOptions) {
+  try {
+    return await fetchAllPages<MetaInsightsRow>(buildObjectInsightsUrl(campaignId, options));
+  } catch (error) {
+    console.warn(
+      "Meta campaign-scoped insights fetch failed; falling back to account insights.",
+      error instanceof Error ? error.message : error,
+    );
+    return fetchAllPages<MetaInsightsRow>(buildAccountInsightsUrl(options));
+  }
+}
+
+async function fetchAdCreativeRows(campaignId?: string) {
+  try {
+    const url = campaignId
+      ? buildObjectEdgeUrl(campaignId, "ads", AD_CREATIVE_FIELDS)
+      : buildAccountEdgeUrl("ads", AD_CREATIVE_FIELDS);
+    return await fetchAllPages<MetaAdEntity>(url);
   } catch (error) {
     console.warn(
       "Meta ad creative fetch failed; continuing without ad thumbnails.",
@@ -1177,17 +1263,20 @@ async function fetchAdCreativeRows() {
   }
 }
 
-async function fetchAdPlatformRows() {
+async function fetchAdPlatformRows(campaignId?: string) {
+  const options: InsightsRequestOptions = {
+    breakdowns: ["publisher_platform"],
+    datePreset: "maximum",
+    fields: "campaign_id,ad_id,spend,impressions,reach",
+    level: "ad",
+    timeIncrement: "all_days",
+  };
+
   try {
-    return await fetchAllPages<MetaInsightsRow>(
-      buildAccountInsightsUrl({
-        breakdowns: ["publisher_platform"],
-        datePreset: "maximum",
-        fields: "campaign_id,ad_id,spend,impressions,reach",
-        level: "ad",
-        timeIncrement: "all_days",
-      }),
-    );
+    const url = campaignId
+      ? buildObjectInsightsUrl(campaignId, options)
+      : buildAccountInsightsUrl(options);
+    return await fetchAllPages<MetaInsightsRow>(url);
   } catch (error) {
     console.warn(
       "Meta ad platform fetch failed; continuing with creative link fallback.",
@@ -1243,59 +1332,38 @@ export async function getCampaignDetailData(
   }
 
   const [
-    campaigns,
-    campaignDailyRows,
+    campaignEntity,
     lifetimeRows,
     adSetInsights,
     adInsights,
     adsWithCreative,
     adPlatformRows,
   ] = await Promise.all([
-    fetchAllPages<MetaEntity>(
-      buildAccountEdgeUrl(
-        "campaigns",
-        "id,name,status,effective_status,configured_status,start_time,stop_time",
-      ),
-    ),
-    fetchAllPages<MetaInsightsRow>(
-      buildAccountInsightsUrl({
-        datePreset: "maximum",
-        fields: "campaign_id,campaign_name,date_start,spend",
-        level: "campaign",
-        timeIncrement: "1",
-      }),
-    ),
-    fetchAllPages<MetaInsightsRow>(
-      buildAccountInsightsUrl({
-        datePreset: "maximum",
-        fields: "campaign_id,campaign_name,spend,impressions,reach,actions",
-        level: "campaign",
-        timeIncrement: "all_days",
-      }),
-    ),
-    fetchAllPages<MetaInsightsRow>(
-      buildAccountInsightsUrl({
-        datePreset: "maximum",
-        fields: "campaign_id,campaign_name,adset_id,adset_name,impressions,reach,spend,actions",
-        level: "adset",
-        timeIncrement: "all_days",
-      }),
-    ),
-    fetchAllPages<MetaInsightsRow>(
-      buildAccountInsightsUrl({
-        datePreset: "maximum",
-        fields:
-          "campaign_id,campaign_name,adset_id,adset_name,ad_id,ad_name,impressions,reach,spend,actions",
-        level: "ad",
-        timeIncrement: "all_days",
-      }),
-    ),
-    fetchAdCreativeRows(),
-    fetchAdPlatformRows(),
+    fetchCampaignEntity(campaignId),
+    fetchCampaignScopedInsights(campaignId, {
+      datePreset: "maximum",
+      fields: "campaign_id,campaign_name,date_start,date_stop,spend,impressions,reach,actions",
+      level: "campaign",
+      timeIncrement: "all_days",
+    }),
+    fetchCampaignScopedInsights(campaignId, {
+      datePreset: "maximum",
+      fields: "campaign_id,campaign_name,adset_id,adset_name,impressions,reach,spend,actions",
+      level: "adset",
+      timeIncrement: "all_days",
+    }),
+    fetchCampaignScopedInsights(campaignId, {
+      datePreset: "maximum",
+      fields:
+        "campaign_id,campaign_name,adset_id,adset_name,ad_id,ad_name,impressions,reach,spend,actions",
+      level: "ad",
+      timeIncrement: "all_days",
+    }),
+    fetchAdCreativeRows(campaignId),
+    fetchAdPlatformRows(campaignId),
   ]);
 
-  const lifetimeRow = lifetimeRows.find((row) => row.campaign_id === campaignId);
-  const campaignEntity = campaigns.find((campaign) => campaign.id === campaignId);
+  const lifetimeRow = lifetimeRows.find((row) => !row.campaign_id || row.campaign_id === campaignId);
   const adCreativeMap = buildAdCreativeMap(adsWithCreative);
   const adPlatformMap = buildAdPlatformMap(adPlatformRows);
   const hierarchy = buildCampaignHierarchyFromInsights(
@@ -1310,7 +1378,7 @@ export async function getCampaignDetailData(
     lifetimeRow ? metricsFromInsights(lifetimeRow) : hierarchyTotals,
     hierarchy,
   );
-  const range = getLifetimeRangeFromRows(campaignId, campaignDailyRows);
+  const range = getCampaignLifetimeRange(campaignId, lifetimeRows, campaignEntity);
 
   if (lifetimeRow?.spend) {
     totals.spend = roundCurrency(convertAccountCurrencyAmount(parseNumericValue(lifetimeRow.spend)));
@@ -1319,7 +1387,12 @@ export async function getCampaignDetailData(
   return {
     adSets: hierarchy,
     campaignId,
-    campaignName: lifetimeRow?.campaign_name || `Campaign ${campaignId}`,
+    campaignName:
+      campaignEntity?.name ||
+      lifetimeRow?.campaign_name ||
+      adSetInsights.find((row) => row.campaign_name)?.campaign_name ||
+      adInsights.find((row) => row.campaign_name)?.campaign_name ||
+      `Campaign ${campaignId}`,
     range,
     source: "live",
     status: getCampaignDisplayStatus(campaignEntity),
