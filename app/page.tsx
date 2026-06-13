@@ -88,6 +88,21 @@ function getBudgetTotalForCampaigns(
   );
 }
 
+function getNegativeRemainingTotalForCampaigns(
+  budgets: Awaited<ReturnType<typeof getAllCampaignBudgets>>,
+  campaigns: SpendDashboardData["campaigns"],
+) {
+  const total = campaigns.reduce((sum, campaign) => {
+    const totalPaid = budgets[campaign.campaignId]?.totalPaid ?? 0;
+    const remaining =
+      Math.round((totalPaid - campaign.totalSpend) * 100) / 100;
+
+    return remaining < 0 ? sum + remaining : sum;
+  }, 0);
+
+  return Math.round(total * 100) / 100;
+}
+
 export default async function HomePage({ searchParams }: PageProps) {
   const resolvedSearchParams = (await searchParams) ?? {};
   const fallbackRange = getDefaultDateRange();
@@ -127,6 +142,10 @@ export default async function HomePage({ searchParams }: PageProps) {
   );
   const totalPaid = getBudgetTotalForCampaigns(budgets, activeCampaigns);
   const remaining = Math.round((totalPaid - visibleSummary.totalSpend) * 100) / 100;
+  const negativeRemaining = getNegativeRemainingTotalForCampaigns(
+    budgets,
+    activeCampaigns,
+  );
   const rangeLabel = getSuggestedRangeLabel(data.range);
 
   return (
@@ -150,6 +169,7 @@ export default async function HomePage({ searchParams }: PageProps) {
         ) : null}
 
         <DashboardSummaryGrid
+          negativeRemaining={negativeRemaining}
           remaining={remaining}
           summary={visibleSummary}
           totalPaid={totalPaid}

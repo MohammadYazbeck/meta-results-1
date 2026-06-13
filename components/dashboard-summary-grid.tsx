@@ -9,17 +9,20 @@ import {
 import { cn } from "@/lib/utils";
 
 type DashboardSummaryGridProps = {
+  negativeRemaining: number;
   remaining: number;
   summary: SpendDashboardData["summary"];
   totalPaid: number;
 };
 
 function SummaryCard({
+  danger,
   eyebrow,
   featured,
   text,
   value,
 }: {
+  danger?: boolean;
   eyebrow: string;
   featured?: boolean;
   text: string;
@@ -47,7 +50,8 @@ function SummaryCard({
             "font-display leading-none  text-ink",
             featured
               ? "text-[clamp(2.2rem,4vw,3.65rem)]"
-              : "text-[clamp(1.65rem,2.6vw,2.3rem)]"
+              : "text-[clamp(1.65rem,2.6vw,2.3rem)]",
+            danger && "text-[#b42318]"
           )}
         >
           {value}
@@ -61,12 +65,13 @@ function SummaryCard({
 }
 
 export function DashboardSummaryGrid({
+  negativeRemaining,
   remaining,
   summary,
   totalPaid,
 }: DashboardSummaryGridProps) {
   return (
-    <section className="mb-8 grid gap-4 sm:grid-cols-2 xl:grid-cols-[minmax(0,1.35fr)_repeat(4,minmax(0,1fr))]">
+    <section className="mb-8 grid gap-4 sm:grid-cols-2 xl:grid-cols-[minmax(0,1.35fr)_repeat(5,minmax(0,1fr))]">
       <SummaryCard
         eyebrow="إجمالي المصروف"
         featured
@@ -87,6 +92,12 @@ export function DashboardSummaryGrid({
         eyebrow="المتبقي"
         text="إجمالي المدفوع ناقص إجمالي المصروف."
         value={formatDisplayCurrency(remaining)}
+      />
+      <SummaryCard
+        danger={negativeRemaining < 0}
+        eyebrow="المتبقي السالب"
+        text="مجموع الحملات التي متبقيها أقل من صفر."
+        value={formatDisplayCurrency(negativeRemaining)}
       />
       <SummaryCard
         eyebrow="أعلى حملة"
