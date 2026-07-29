@@ -20,7 +20,7 @@ export function CampaignBudgetPanel({
   payments,
 }: CampaignBudgetPanelProps) {
   return (
-    <section className={cn(panelClassName, "w-full max-w-lg")}>
+    <section className={cn(panelClassName, "w-full")}>
       <SectionHeading
         description="إدارة الدفعات المسجلة للحملة من واجهة المدير."
         eyebrow="إدخال الدفعات"

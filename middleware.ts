@@ -4,6 +4,7 @@ import type { NextRequest } from "next/server";
 import { adminSessionCookieName, isValidAdminSessionValue } from "@/lib/admin-auth";
 
 const PUBLIC_PATHS = ["/login"];
+const PUBLIC_API_PATHS = ["/api/meta/campaign"];
 const RESERVED_PRIVATE_SEGMENTS = new Set(["api", "archive", "login"]);
 
 function isPublicCampaignPath(pathname: string) {
@@ -29,12 +30,15 @@ export function middleware(request: NextRequest) {
   }
 
   const isPublicPath = PUBLIC_PATHS.some((path) => pathname === path || pathname.startsWith(`${path}/`));
+  const isPublicApiPath = PUBLIC_API_PATHS.some(
+    (path) => pathname === path || pathname.startsWith(`${path}/`),
+  );
   const isPublicCampaign = isPublicCampaignPath(pathname);
   const hasValidSession = isValidAdminSessionValue(
     request.cookies.get(adminSessionCookieName)?.value,
   );
 
-  if (!hasValidSession && !isPublicPath && !isPublicCampaign) {
+  if (!hasValidSession && !isPublicPath && !isPublicApiPath && !isPublicCampaign) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
     url.search = "";

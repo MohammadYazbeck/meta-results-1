@@ -1,5 +1,6 @@
 import dynamic from "next/dynamic";
 
+import { CampaignAdStopAccessPanel } from "@/components/campaign-ad-stop-access-panel";
 import { CampaignBudgetPanel } from "@/components/campaign-budget-panel";
 import { CampaignDetailHeader } from "@/components/campaign-detail-header";
 import { ErrorPanel } from "@/components/ui/error-panel";
@@ -7,6 +8,7 @@ import { HierarchyBadge } from "@/components/ui/hierarchy-badge";
 import { panelClassName } from "@/components/ui/class-names";
 import { PageScene } from "@/components/ui/page-scene";
 import { SectionHeading } from "@/components/ui/section-heading";
+import { getCampaignAdStopAccess } from "@/lib/ad-stop-access-store";
 import { isAdminAuthenticated } from "@/lib/admin-auth";
 import { getCampaignBudget } from "@/lib/budget-store";
 import {
@@ -41,8 +43,11 @@ function buildWallet(totalPaid: number, totalSpent: number) {
 
 export default async function CampaignDetailPage({ params }: PageProps) {
   const { campaignId } = await params;
-  const isAdmin = await isAdminAuthenticated();
-  const budgetRecord = await getCampaignBudget(campaignId);
+  const [isAdmin, budgetRecord, stopAccess] = await Promise.all([
+    isAdminAuthenticated(),
+    getCampaignBudget(campaignId),
+    getCampaignAdStopAccess(campaignId),
+  ]);
   let errorMessage: string | null = null;
   let campaign: CampaignDetailData;
 
@@ -99,14 +104,24 @@ export default async function CampaignDetailPage({ params }: PageProps) {
               title="الإعلانات"
             />
 
-            <CampaignHierarchy adSets={campaign.adSets} />
+            <CampaignHierarchy
+              adSets={campaign.adSets}
+              campaignId={campaign.campaignId}
+              canStopAds={stopAccess.enabled && stopAccess.hasPasscode}
+            />
           </section>
 
           {isAdmin ? (
-            <CampaignBudgetPanel
-              campaignId={campaign.campaignId}
-              payments={budgetRecord.payments}
-            />
+            <div className="grid w-full grid-cols-1 gap-6 lg:grid-cols-2 lg:items-stretch">
+              <CampaignBudgetPanel
+                campaignId={campaign.campaignId}
+                payments={budgetRecord.payments}
+              />
+              <CampaignAdStopAccessPanel
+                access={stopAccess}
+                campaignId={campaign.campaignId}
+              />
+            </div>
           ) : null}
         </section>
       </PageScene>

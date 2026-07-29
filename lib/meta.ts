@@ -52,6 +52,7 @@ const PROFILE_VISIT_ALIASES = [
 ];
 const AD_CREATIVE_FIELDS =
   "id,status,effective_status,created_time,updated_time,creative{id,thumbnail_url,image_url,link_url,object_url,effective_object_story_id,object_story_id,instagram_permalink_url,object_story_spec}";
+const AD_STATUS_FIELDS = "id,name,campaign_id,status,effective_status,configured_status";
 const metaResponseCache = new Map<string, { expiresAt: number; value: unknown }>();
 
 export type DateRange = {
@@ -124,6 +125,20 @@ type MetaAdEntity = {
   id: string;
   status?: string;
   updated_time?: string;
+};
+
+type MetaAdStatusEntity = {
+  campaign_id?: string;
+  configured_status?: string;
+  effective_status?: string;
+  id: string;
+  name?: string;
+  status?: string;
+};
+
+type MetaMutationResponse = {
+  id?: string;
+  success?: boolean;
 };
 
 type MetaEntity = {
@@ -397,6 +412,34 @@ async function fetchMetaJson<T>(url: string) {
   return payload;
 }
 
+async function postMetaFormJson<T>(url: string, body: Record<string, string>) {
+  const formBody = new URLSearchParams(body);
+  formBody.set("access_token", getEnv("META_ACCESS_TOKEN"));
+
+  const response = await fetch(url, {
+    body: formBody,
+    headers: {
+      "Content-Type": "application/x-www-form-urlencoded",
+    },
+    method: "POST",
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Meta API request failed with ${response.status}: ${errorText}`);
+  }
+
+  const payload = (await response.json()) as T & {
+    error?: { message?: string };
+  };
+
+  if (payload.error?.message) {
+    throw new Error(payload.error.message);
+  }
+
+  return payload;
+}
+
 async function fetchAllPages<T>(url: string) {
   const rows: T[] = [];
   let nextUrl: string | undefined = url;
@@ -433,6 +476,11 @@ function buildGraphNodeUrl(objectId: string, fields: string) {
   const url = new URL(`https://graph.facebook.com/${version}/${objectId}`);
   url.searchParams.set("fields", fields);
   return url.toString();
+}
+
+function buildGraphObjectUrl(objectId: string) {
+  const version = getApiVersion();
+  return `https://graph.facebook.com/${version}/${objectId}`;
 }
 
 function buildInsightsUrl(path: string, options: InsightsRequestOptions) {
@@ -474,6 +522,34 @@ function buildAccountInsightsUrl(options: InsightsRequestOptions) {
 
 function buildObjectInsightsUrl(objectId: string, options: InsightsRequestOptions) {
   return buildInsightsUrl(objectId, options);
+}
+
+function isMetaMissingObjectOrPermissionError(error: unknown) {
+  if (!(error instanceof Error)) {
+    return false;
+  }
+
+  return (
+    error.message.includes("Unsupported post request") ||
+    error.message.includes("does not exist") ||
+    error.message.includes("missing permissions") ||
+    error.message.includes('"code":100') ||
+    error.message.includes('"error_subcode":33')
+  );
+}
+
+function getMetaMutationErrorMessage(error: unknown) {
+  const message = error instanceof Error ? error.message : "";
+
+  if (
+    isMetaMissingObjectOrPermissionError(error) ||
+    message.includes("permissions") ||
+    message.includes("ads_management")
+  ) {
+    return "Meta rejected changing this ad status. Check that META_ACCESS_TOKEN has ads_management and access to this ad account.";
+  }
+
+  return message || "Meta rejected changing this ad status.";
 }
 
 function normalizeUrl(value?: string) {
@@ -663,6 +739,20 @@ function getRecognizedPublisherPlatform(platform?: string): AdDeliveryPlatform |
 
 function getAdDisplayStatus(ad?: MetaAdEntity) {
   return (ad?.effective_status || ad?.status)?.toUpperCase();
+}
+
+function getAdStatusValues(ad: MetaAdStatusEntity) {
+  return [
+    ad.status,
+    ad.configured_status,
+    ad.effective_status,
+  ]
+    .filter(Boolean)
+    .map((status) => (status as string).toUpperCase());
+}
+
+function getPrimaryAdStatus(ad: MetaAdStatusEntity) {
+  return getAdStatusValues(ad)[0];
 }
 
 function getAdPermalinkChoice(creative?: AdCreativeLinkData, platform?: AdDeliveryPlatform) {
@@ -1284,6 +1374,76 @@ async function fetchAdPlatformRows(campaignId?: string) {
     );
     return [];
   }
+}
+
+async function fetchCampaignAdForStatus(campaignId: string, adId: string) {
+  try {
+    return await fetchMetaJson<MetaAdStatusEntity>(
+      buildGraphNodeUrl(adId, AD_STATUS_FIELDS),
+    );
+  } catch (error) {
+    if (!isMetaMissingObjectOrPermissionError(error)) {
+      throw error;
+    }
+
+    const campaignAds = await fetchAllPages<MetaAdStatusEntity>(
+      buildObjectEdgeUrl(campaignId, "ads", AD_STATUS_FIELDS),
+    );
+    return campaignAds.find((ad) => ad.id === adId);
+  }
+}
+
+export async function pauseCampaignAd(campaignId: string, adId: string) {
+  const normalizedCampaignId = campaignId.trim();
+  const normalizedAdId = adId.trim();
+
+  if (!isConfigured()) {
+    throw new Error("Meta API is not configured.");
+  }
+
+  if (!normalizedCampaignId || !normalizedAdId) {
+    throw new Error("Campaign ID and ad ID are required.");
+  }
+
+  const ad = await fetchCampaignAdForStatus(normalizedCampaignId, normalizedAdId);
+
+  if (!ad) {
+    throw new Error("This ad does not belong to the selected campaign.");
+  }
+
+  if (ad.campaign_id && ad.campaign_id !== normalizedCampaignId) {
+    throw new Error("This ad does not belong to the selected campaign.");
+  }
+
+  if (!getAdStatusValues(ad).includes("ACTIVE")) {
+    throw new Error("This ad is not active.");
+  }
+
+  let payload: MetaMutationResponse;
+
+  try {
+    payload = await postMetaFormJson<MetaMutationResponse>(
+      buildGraphObjectUrl(ad.id),
+      {
+        status: "PAUSED",
+      },
+    );
+  } catch (error) {
+    throw new Error(getMetaMutationErrorMessage(error));
+  }
+
+  if (payload.success === false) {
+    throw new Error("Meta did not confirm the ad status update.");
+  }
+
+  metaResponseCache.clear();
+
+  return {
+    adId: ad.id,
+    adName: ad.name,
+    previousStatus: getPrimaryAdStatus(ad),
+    status: "PAUSED" as const,
+  };
 }
 
 export async function getSpendDashboardData(inputRange?: Partial<DateRange>) {
