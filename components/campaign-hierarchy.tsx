@@ -9,6 +9,7 @@ import { cn } from "@/lib/utils";
 
 type CampaignHierarchyProps = {
   adSets: CampaignDetailData["adSets"];
+  campaignStatus?: CampaignDetailData["status"];
   campaignId: string;
   canStopAds: boolean;
 };
@@ -57,12 +58,22 @@ function AdMetric({ label, value }: { label: string; value: string }) {
   );
 }
 
-function isAdRunning(ad: FlatAd) {
-  return ad.status?.toUpperCase() === "ACTIVE";
+function isAdRunning(ad: FlatAd, campaignStatus?: CampaignDetailData["status"]) {
+  const normalizedCampaignStatus = campaignStatus?.toUpperCase();
+  const campaignAllowsDelivery =
+    !normalizedCampaignStatus || normalizedCampaignStatus === "ACTIVE";
+
+  return campaignAllowsDelivery && ad.status?.toUpperCase() === "ACTIVE";
 }
 
-function AdThumbnail({ ad }: { ad: FlatAd }) {
-  const isRunning = isAdRunning(ad);
+function AdThumbnail({
+  ad,
+  campaignStatus,
+}: {
+  ad: FlatAd;
+  campaignStatus?: CampaignDetailData["status"];
+}) {
+  const isRunning = isAdRunning(ad, campaignStatus);
   const primaryLink = ad.permalinkUrl || ad.destinationUrl;
   const media = ad.thumbnailUrl ? (
     <img
@@ -386,6 +397,7 @@ function flattenAds(adSets: CampaignDetailData["adSets"]) {
 
 export function CampaignHierarchy({
   adSets,
+  campaignStatus,
   campaignId,
   canStopAds,
 }: CampaignHierarchyProps) {
@@ -412,7 +424,7 @@ export function CampaignHierarchy({
     <div className="grid gap-3 px-5 pb-5 pt-2 sm:px-6 sm:pb-6">
       {ads.map((ad: FlatAd, adIndex) => {
         const displayAd = stoppedAdIds.has(ad.id) ? { ...ad, status: "PAUSED" } : ad;
-        const isRunning = isAdRunning(displayAd);
+        const isRunning = isAdRunning(displayAd, campaignStatus);
 
         return (
           <article
@@ -432,7 +444,7 @@ export function CampaignHierarchy({
             />
 
             <div className="grid gap-3 lg:grid-cols-[minmax(116px,150px)_minmax(0,1fr)] lg:items-start">
-              <AdThumbnail ad={displayAd} />
+              <AdThumbnail ad={displayAd} campaignStatus={campaignStatus} />
 
               <div className="grid min-w-0 gap-2">
                 <div className="flex flex-wrap gap-2">
@@ -477,7 +489,7 @@ export function CampaignHierarchy({
             <div className="grid grid-cols-2 gap-2 min-[560px]:grid-cols-3 xl:grid-cols-6">
               <AdMetric label="المصروف" value={formatDisplayCurrency(ad.spend)} />
               <AdMetric label="الرسائل" value={formatInteger(ad.messages)} />
-              <AdMetric label="متابعو إنستغرام" value={formatInteger(ad.followers)} />
+              <AdMetric label="متابعات إنستغرام من الإعلان" value={formatInteger(ad.followers)} />
               <AdMetric
                 label="إعجابات صفحة فيسبوك"
                 value={formatInteger(ad.facebookPageLikes)}

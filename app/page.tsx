@@ -7,6 +7,7 @@ import { ErrorPanel } from "@/components/ui/error-panel";
 import { PageScene } from "@/components/ui/page-scene";
 import { getAllCampaignBudgets } from "@/lib/budget-store";
 import { getArchivedCampaigns } from "@/lib/campaign-archive-store";
+import { isAdminAuthenticated } from "@/lib/admin-auth";
 import {
   getEmptySpendDashboardData,
   getDefaultDateRange,
@@ -146,6 +147,7 @@ export default async function HomePage({ searchParams }: PageProps) {
     budgets,
     activeCampaigns,
   );
+  const isAdmin = await isAdminAuthenticated();
   const rangeLabel = getSuggestedRangeLabel(data.range);
 
   return (
@@ -185,6 +187,7 @@ export default async function HomePage({ searchParams }: PageProps) {
           campaigns={activeCampaigns}
           emptyMessage="لا توجد بيانات حملات غير مؤرشفة لهذه الفترة."
           initialQuery={query}
+          isAdmin={isAdmin}
           range={data.range}
           searchEmptyMessage="لا توجد حملات مطابقة لهذا البحث."
           secondaryHref="/archive"

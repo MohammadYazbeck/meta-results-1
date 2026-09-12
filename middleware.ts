@@ -20,9 +20,20 @@ function isPublicCampaignPath(pathname: string) {
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
+  if (pathname === "/favicon.ico") {
+    return NextResponse.rewrite(new URL("/icon.svg", request.url));
+  }
+
+  if (pathname === "/sw.js") {
+    return new NextResponse("/* No service worker configured. */", {
+      headers: {
+        "Content-Type": "application/javascript",
+      },
+    });
+  }
+
   if (
     pathname.startsWith("/_next") ||
-    pathname.startsWith("/favicon") ||
     pathname.startsWith("/robots") ||
     pathname.startsWith("/sitemap")
   ) {
@@ -56,5 +67,5 @@ export function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/((?!_next/static|_next/image|favicon.ico).*)"],
+  matcher: ["/((?!_next/static|_next/image).*)"],
 };

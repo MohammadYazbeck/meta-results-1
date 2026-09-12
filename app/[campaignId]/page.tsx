@@ -106,6 +106,7 @@ export default async function CampaignDetailPage({ params }: PageProps) {
 
             <CampaignHierarchy
               adSets={campaign.adSets}
+              campaignStatus={campaign.status}
               campaignId={campaign.campaignId}
               canStopAds={stopAccess.enabled && stopAccess.hasPasscode}
             />

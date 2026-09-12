@@ -16,6 +16,7 @@ import { formatDisplayCurrency } from "@/lib/currency";
 import type { CampaignSpend, DateRange } from "@/lib/meta";
 
 import { SectionHeading } from "@/components/ui/section-heading";
+import { StopNegativeCampaignsButton } from "@/components/stop-negative-campaigns-button";
 import { cn } from "@/lib/utils";
 
 type CampaignTableProps = {
@@ -24,6 +25,7 @@ type CampaignTableProps = {
   budgets: Record<string, CampaignBudgetRecord>;
   campaigns: CampaignSpend[];
   emptyMessage?: string;
+  isAdmin?: boolean;
   initialQuery?: string;
   mode?: "active" | "archive";
   range: DateRange;
@@ -200,6 +202,7 @@ export function CampaignTable({
   campaigns,
   emptyMessage = "لا توجد بيانات حملات لهذه الفترة.",
   initialQuery = "",
+  isAdmin = false,
   mode = "active",
   range,
   searchEmptyMessage = "لا توجد حملات مطابقة لهذا البحث.",
@@ -245,6 +248,14 @@ export function CampaignTable({
       return getRemaining(totalPaid, campaign.totalSpend) < 0;
     });
   }, [budgets, liveCampaigns, mode, negativeRemainingOnly, normalizedQuery]);
+  const negativeCampaignCount = useMemo(
+    () =>
+      campaigns.filter((campaign) => {
+        const totalPaid = budgets[campaign.campaignId]?.totalPaid ?? 0;
+        return getRemaining(totalPaid, campaign.totalSpend) < -10;
+      }).length,
+    [budgets, campaigns],
+  );
   const resolvedEmptyMessage = normalizedQuery
     ? searchEmptyMessage
     : negativeRemainingOnly && mode === "active"
@@ -390,6 +401,9 @@ export function CampaignTable({
 
             <div className="flex flex-col gap-2 sm:items-end">
               {negativeFilterControl}
+              {isAdmin && mode === "active" ? (
+                <StopNegativeCampaignsButton campaignCount={negativeCampaignCount} />
+              ) : null}
               {query ? (
                 <Link
                   className={quietButtonClassName}

@@ -143,6 +143,24 @@ function getCampaignStatusMeta(status?: string) {
   };
 }
 
+function formatCampaignEndDate(value?: string) {
+  if (!value) {
+    return "لا يوجد موعد محدد";
+  }
+
+  const timestamp = Date.parse(value);
+
+  if (!Number.isFinite(timestamp)) {
+    return "لا يوجد موعد محدد";
+  }
+
+  return new Intl.DateTimeFormat("ar-EG", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  }).format(new Date(timestamp));
+}
+
 export function CampaignDetailHeader({
   campaign,
   isAdmin,
@@ -265,6 +283,10 @@ export function CampaignDetailHeader({
               label="الإعلانات"
               value={new Intl.NumberFormat("en-US").format(totalAds)}
             />
+            <MobileStatCard
+              label="تنتهي في"
+              value={formatCampaignEndDate(campaign.endDate)}
+            />
           </MobileStatsRail>
 
           <MobileStatsRail title="المقاييس العددية">
@@ -275,7 +297,7 @@ export function CampaignDetailHeader({
               )}
             />
             <MobileStatCard
-              label="متابعو إنستغرام"
+              label="متابعات إنستغرام من الإعلانات"
               value={new Intl.NumberFormat("en-US").format(
                 campaign.totals.followers
               )}
@@ -328,6 +350,10 @@ export function CampaignDetailHeader({
               label="الإعلانات"
               value={new Intl.NumberFormat("en-US").format(totalAds)}
             />
+            <DetailStat
+              label="تنتهي في"
+              value={formatCampaignEndDate(campaign.endDate)}
+            />
           </DetailStatsGrid>
         </div>
 
@@ -341,7 +367,7 @@ export function CampaignDetailHeader({
               )}
             />
             <DetailStat
-              label="متابعو إنستغرام"
+              label="متابعات إنستغرام من الإعلانات"
               value={new Intl.NumberFormat("en-US").format(
                 campaign.totals.followers
               )}

@@ -8,17 +8,7 @@ const MESSAGES_ALIASES = [
   "messaging_conversation_started",
 ];
 const FOLLOWERS_ALIASES = [
-  "ig_follow",
-  "ig_follows",
-  "ig_profile_follow",
-  "instagram_follow",
-  "instagram_follows",
   "instagram_profile_follow",
-  "omni_follow",
-  "follow",
-  "follows",
-  "post_save",
-  "profile_follow",
 ];
 const FACEBOOK_PAGE_LIKE_ACTION_TYPES = [
   "like",
@@ -75,6 +65,7 @@ type MetaInsightsRow = {
   campaign_name?: string;
   date_start?: string;
   impressions?: string;
+  instagram_profile_follow?: string;
   publisher_platform?: string;
   reach?: string;
   spend?: string;
@@ -168,6 +159,7 @@ type InsightsRequestOptions = {
   level: "campaign" | "adset" | "ad";
   range?: DateRange;
   timeIncrement: "1" | "all_days";
+  useUnifiedAttributionSetting?: boolean;
 };
 
 export type MetricTotals = {
@@ -253,6 +245,7 @@ export type CampaignDetailData = {
   adSets: AdSetPerformance[];
   campaignId: string;
   campaignName: string;
+  endDate?: string;
   range: DateRange;
   source: "live" | "mock";
   status?: string;
@@ -505,6 +498,10 @@ function buildInsightsUrl(path: string, options: InsightsRequestOptions) {
     url.searchParams.set("date_preset", options.datePreset);
   }
 
+  if (options.useUnifiedAttributionSetting) {
+    url.searchParams.set("use_unified_attribution_setting", "true");
+  }
+
   if (options.breakdowns?.length) {
     url.searchParams.set("breakdowns", options.breakdowns.join(","));
   }
@@ -538,7 +535,7 @@ function isMetaMissingObjectOrPermissionError(error: unknown) {
   );
 }
 
-function getMetaMutationErrorMessage(error: unknown) {
+function getMetaMutationErrorMessage(error: unknown, entityLabel = "ad") {
   const message = error instanceof Error ? error.message : "";
 
   if (
@@ -546,10 +543,10 @@ function getMetaMutationErrorMessage(error: unknown) {
     message.includes("permissions") ||
     message.includes("ads_management")
   ) {
-    return "Meta rejected changing this ad status. Check that META_ACCESS_TOKEN has ads_management and access to this ad account.";
+    return `Meta rejected changing this ${entityLabel} status. Check that META_ACCESS_TOKEN has ads_management and access to this ad account.`;
   }
 
-  return message || "Meta rejected changing this ad status.";
+  return message || `Meta rejected changing this ${entityLabel} status.`;
 }
 
 function normalizeUrl(value?: string) {
@@ -647,7 +644,7 @@ function sumProfileVisitActionValues(actions: MetaActionStat[] | undefined) {
 function metricsFromInsights(row?: MetaInsightsRow): MetricTotals {
   return {
     facebookPageLikes: sumExactActionValues(row?.actions, FACEBOOK_PAGE_LIKE_ACTION_TYPES),
-    followers: sumActionValues(row?.actions, FOLLOWERS_ALIASES),
+    followers: roundCount(parseNumericValue(row?.instagram_profile_follow)),
     impressions: roundCount(parseNumericValue(row?.impressions)),
     messages: sumActionValues(row?.actions, MESSAGES_ALIASES),
     profileVisits: sumProfileVisitActionValues(row?.actions),
@@ -889,44 +886,6 @@ function mergeTotals(base: MetricTotals, next: MetricTotals): MetricTotals {
     profileVisits: roundCount(base.profileVisits + next.profileVisits),
     reach: roundCount(base.reach + next.reach),
     spend: roundCurrency(base.spend + next.spend),
-  };
-}
-
-function getMaxMetric(items: MetricTotals[], key: keyof MetricTotals) {
-  return items.reduce((max, item) => Math.max(max, item[key]), 0);
-}
-
-function reconcileParentCountTotals(
-  parent: MetricTotals,
-  children: MetricTotals[],
-): MetricTotals {
-  if (!children.length) {
-    return parent;
-  }
-
-  const childTotals = children.reduce((sum, child) => mergeTotals(sum, child), zeroTotals());
-
-  return {
-    ...parent,
-    facebookPageLikes: Math.max(parent.facebookPageLikes, childTotals.facebookPageLikes),
-    followers: Math.max(parent.followers, childTotals.followers),
-    impressions: Math.max(parent.impressions, childTotals.impressions),
-    messages: childTotals.messages,
-    profileVisits: Math.max(parent.profileVisits, childTotals.profileVisits),
-    reach: Math.max(parent.reach, getMaxMetric(children, "reach")),
-  };
-}
-
-function reconcileSingleAdWithAdSet(ad: AdPerformance, adSetTotals: MetricTotals): AdPerformance {
-  return {
-    ...ad,
-    facebookPageLikes: Math.max(ad.facebookPageLikes, adSetTotals.facebookPageLikes),
-    followers: Math.max(ad.followers, adSetTotals.followers),
-    impressions: Math.max(ad.impressions, adSetTotals.impressions),
-    messages: Math.max(ad.messages, adSetTotals.messages),
-    profileVisits: Math.max(ad.profileVisits, adSetTotals.profileVisits),
-    reach: Math.max(ad.reach, adSetTotals.reach),
-    spend: Math.max(ad.spend, adSetTotals.spend),
   };
 }
 
@@ -1288,16 +1247,13 @@ function buildCampaignHierarchyFromInsights(
               spend: adSet.spend,
             };
       const sortedAds = adSet.ads.sort((left, right) => right.spend - left.spend);
-      const displayAds =
-        sortedAds.length === 1
-          ? [reconcileSingleAdWithAdSet(sortedAds[0], levelTotals)]
-          : sortedAds;
+      const displayAds = sortedAds;
       const displayAdsTotals = displayAds.reduce(
         (sum, ad) => mergeTotals(sum, ad),
         zeroTotals(),
       );
       const totals = {
-        ...reconcileParentCountTotals(levelTotals, displayAds),
+        ...levelTotals,
         spend: levelTotals.spend || displayAdsTotals.spend,
       };
 
@@ -1446,6 +1402,63 @@ export async function pauseCampaignAd(campaignId: string, adId: string) {
   };
 }
 
+export async function pauseCampaign(campaignId: string) {
+  const normalizedCampaignId = campaignId.trim();
+
+  if (!isConfigured()) {
+    throw new Error("Meta API is not configured.");
+  }
+
+  if (!normalizedCampaignId) {
+    throw new Error("Campaign ID is required.");
+  }
+
+  const campaign = await fetchCampaignEntity(normalizedCampaignId);
+
+  if (!campaign) {
+    throw new Error("Campaign was not found in this ad account.");
+  }
+
+  const currentStatus = getCampaignDisplayStatus(campaign);
+
+  if (currentStatus !== "ACTIVE") {
+    return {
+      campaignId: normalizedCampaignId,
+      campaignName: campaign.name || normalizedCampaignId,
+      previousStatus: currentStatus,
+      skipped: true,
+      status: currentStatus || "UNKNOWN",
+    };
+  }
+
+  let payload: MetaMutationResponse;
+
+  try {
+    payload = await postMetaFormJson<MetaMutationResponse>(
+      buildGraphObjectUrl(normalizedCampaignId),
+      {
+        status: "PAUSED",
+      },
+    );
+  } catch (error) {
+    throw new Error(getMetaMutationErrorMessage(error, "campaign"));
+  }
+
+  if (payload.success === false) {
+    throw new Error("Meta did not confirm the campaign status update.");
+  }
+
+  metaResponseCache.clear();
+
+  return {
+    campaignId: normalizedCampaignId,
+    campaignName: campaign.name || normalizedCampaignId,
+    previousStatus: currentStatus,
+    skipped: false,
+    status: "PAUSED" as const,
+  };
+}
+
 export async function getSpendDashboardData(inputRange?: Partial<DateRange>) {
   const range = sanitizeDateRange(inputRange?.start, inputRange?.end);
 
@@ -1502,22 +1515,25 @@ export async function getCampaignDetailData(
     fetchCampaignEntity(campaignId),
     fetchCampaignScopedInsights(campaignId, {
       datePreset: "maximum",
-      fields: "campaign_id,campaign_name,date_start,date_stop,spend,impressions,reach,actions",
+      fields: "campaign_id,campaign_name,date_start,date_stop,spend,impressions,reach,instagram_profile_follow,actions",
       level: "campaign",
       timeIncrement: "all_days",
+      useUnifiedAttributionSetting: true,
     }),
     fetchCampaignScopedInsights(campaignId, {
       datePreset: "maximum",
-      fields: "campaign_id,campaign_name,adset_id,adset_name,impressions,reach,spend,actions",
+      fields: "campaign_id,campaign_name,adset_id,adset_name,impressions,reach,instagram_profile_follow,spend,actions",
       level: "adset",
       timeIncrement: "all_days",
+      useUnifiedAttributionSetting: true,
     }),
     fetchCampaignScopedInsights(campaignId, {
       datePreset: "maximum",
       fields:
-        "campaign_id,campaign_name,adset_id,adset_name,ad_id,ad_name,impressions,reach,spend,actions",
+        "campaign_id,campaign_name,adset_id,adset_name,ad_id,ad_name,impressions,reach,instagram_profile_follow,spend,actions",
       level: "ad",
       timeIncrement: "all_days",
+      useUnifiedAttributionSetting: true,
     }),
     fetchAdCreativeRows(campaignId),
     fetchAdPlatformRows(campaignId),
@@ -1534,10 +1550,7 @@ export async function getCampaignDetailData(
     adPlatformMap,
   );
   const hierarchyTotals = hierarchy.reduce((sum, adSet) => mergeTotals(sum, adSet), zeroTotals());
-  const totals = reconcileParentCountTotals(
-    lifetimeRow ? metricsFromInsights(lifetimeRow) : hierarchyTotals,
-    hierarchy,
-  );
+  const totals = lifetimeRow ? metricsFromInsights(lifetimeRow) : hierarchyTotals;
   const range = getCampaignLifetimeRange(campaignId, lifetimeRows, campaignEntity);
 
   if (lifetimeRow?.spend) {
@@ -1553,6 +1566,7 @@ export async function getCampaignDetailData(
       adSetInsights.find((row) => row.campaign_name)?.campaign_name ||
       adInsights.find((row) => row.campaign_name)?.campaign_name ||
       `Campaign ${campaignId}`,
+    endDate: formatMetaDate(campaignEntity?.stop_time),
     range,
     source: "live",
     status: getCampaignDisplayStatus(campaignEntity),
@@ -1612,26 +1626,29 @@ export async function getCampaignDebugData(campaignId: string): Promise<Campaign
     fetchAllPages<MetaInsightsRow>(
       buildAccountInsightsUrl({
         datePreset: "maximum",
-        fields: "campaign_id,campaign_name,spend,impressions,reach,actions",
+        fields: "campaign_id,campaign_name,spend,impressions,reach,instagram_profile_follow,actions",
         level: "campaign",
         timeIncrement: "all_days",
+        useUnifiedAttributionSetting: true,
       }),
     ),
     fetchAllPages<MetaInsightsRow>(
       buildAccountInsightsUrl({
         datePreset: "maximum",
-        fields: "campaign_id,campaign_name,adset_id,adset_name,impressions,reach,spend,actions",
+        fields: "campaign_id,campaign_name,adset_id,adset_name,impressions,reach,instagram_profile_follow,spend,actions",
         level: "adset",
         timeIncrement: "all_days",
+        useUnifiedAttributionSetting: true,
       }),
     ),
     fetchAllPages<MetaInsightsRow>(
       buildAccountInsightsUrl({
         datePreset: "maximum",
         fields:
-          "campaign_id,campaign_name,adset_id,adset_name,ad_id,ad_name,impressions,reach,spend,actions",
+          "campaign_id,campaign_name,adset_id,adset_name,ad_id,ad_name,impressions,reach,instagram_profile_follow,actions",
         level: "ad",
         timeIncrement: "all_days",
+        useUnifiedAttributionSetting: true,
       }),
     ),
   ]);
@@ -1655,10 +1672,7 @@ export async function getCampaignDebugData(campaignId: string): Promise<Campaign
     zeroTotals(),
   );
   const hierarchy = buildCampaignHierarchyFromInsights(campaignId, adSetInsights, adInsights);
-  const currentRenderedCampaign = reconcileParentCountTotals(
-    filteredCampaigns.length ? campaignLevel : adSetLevelSum,
-    hierarchy,
-  );
+  const currentRenderedCampaign = filteredCampaigns.length ? campaignLevel : adSetLevelSum;
 
   return {
     accountId: getAccountId(),
