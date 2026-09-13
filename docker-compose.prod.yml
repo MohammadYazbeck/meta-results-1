@@ -12,7 +12,7 @@ services:
       - traefik.enable=true
       - traefik.docker.network=web
       - traefik.http.routers.results.entrypoints=websecure
-      - traefik.http.routers.results.rule=Host(`results.ozmo.media`)
+      - traefik.http.routers.results.rule=Host(`ads.ozmo.media`)
       - traefik.http.routers.results.tls.certresolver=lets
       - traefik.http.services.results.loadbalancer.server.port=3000
     networks:

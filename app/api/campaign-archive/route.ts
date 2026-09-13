@@ -4,13 +4,15 @@ import { NextResponse } from "next/server";
 import { isAdminAuthenticated } from "@/lib/admin-auth";
 import {
   archiveCampaign,
+  archiveCampaigns,
   unarchiveCampaign,
 } from "@/lib/campaign-archive-store";
 
 type ArchiveRequest = {
+  campaigns?: Array<{ campaignId?: string; campaignName?: string }>;
   campaignId?: string;
   campaignName?: string;
-  mode?: "archive" | "unarchive";
+  mode?: "archive" | "unarchive" | "archive-all";
 };
 
 export async function POST(request: Request) {
@@ -20,6 +22,25 @@ export async function POST(request: Request) {
     }
 
     const body = (await request.json()) as ArchiveRequest;
+
+    if (body.mode === "archive-all") {
+      const campaigns = (body.campaigns || [])
+        .map((campaign) => ({
+          campaignId: campaign.campaignId?.trim() || "",
+          campaignName: campaign.campaignName?.trim() || "",
+        }))
+        .filter((campaign) => campaign.campaignId);
+
+      if (!campaigns.length) {
+        return NextResponse.json({ error: "No campaigns to archive." }, { status: 400 });
+      }
+
+      await archiveCampaigns(campaigns);
+      revalidatePath("/");
+      revalidatePath("/archive");
+      return NextResponse.json({ ok: true, count: campaigns.length });
+    }
+
     const campaignId = body.campaignId?.trim();
 
     if (!campaignId) {

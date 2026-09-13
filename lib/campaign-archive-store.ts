@@ -61,6 +61,27 @@ export async function archiveCampaign(campaignId: string, campaignName: string) 
   return payload.campaigns[campaignId];
 }
 
+export async function archiveCampaigns(
+  campaigns: Array<{ campaignId: string; campaignName: string }>,
+) {
+  const payload = await readArchivePayload();
+  const archivedAt = new Date().toISOString();
+
+  for (const campaign of campaigns) {
+    const campaignId = campaign.campaignId.trim();
+    if (!campaignId) continue;
+
+    payload.campaigns[campaignId] = {
+      archivedAt,
+      campaignId,
+      campaignName: campaign.campaignName.trim() || `Campaign ${campaignId}`,
+    };
+  }
+
+  await writeArchivePayload(payload);
+  return payload.campaigns;
+}
+
 export async function unarchiveCampaign(campaignId: string) {
   const payload = await readArchivePayload();
   delete payload.campaigns[campaignId];

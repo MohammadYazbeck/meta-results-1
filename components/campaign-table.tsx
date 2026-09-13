@@ -16,7 +16,6 @@ import { formatDisplayCurrency } from "@/lib/currency";
 import type { CampaignSpend, DateRange } from "@/lib/meta";
 
 import { SectionHeading } from "@/components/ui/section-heading";
-import { StopNegativeCampaignsButton } from "@/components/stop-negative-campaigns-button";
 import { cn } from "@/lib/utils";
 
 type CampaignTableProps = {
@@ -213,6 +212,7 @@ export function CampaignTable({
   const [query, setQuery] = useState(initialQuery);
   const [negativeRemainingOnly, setNegativeRemainingOnly] = useState(false);
   const [archiveError, setArchiveError] = useState<string | null>(null);
+  const [isArchivingAll, setIsArchivingAll] = useState(false);
   const [currentArchivedCount, setCurrentArchivedCount] = useState(
     archivedCount ?? 0,
   );
@@ -248,14 +248,6 @@ export function CampaignTable({
       return getRemaining(totalPaid, campaign.totalSpend) < 0;
     });
   }, [budgets, liveCampaigns, mode, negativeRemainingOnly, normalizedQuery]);
-  const negativeCampaignCount = useMemo(
-    () =>
-      campaigns.filter((campaign) => {
-        const totalPaid = budgets[campaign.campaignId]?.totalPaid ?? 0;
-        return getRemaining(totalPaid, campaign.totalSpend) < -10;
-      }).length,
-    [budgets, campaigns],
-  );
   const resolvedEmptyMessage = normalizedQuery
     ? searchEmptyMessage
     : negativeRemainingOnly && mode === "active"
@@ -377,6 +369,40 @@ export function CampaignTable({
     }
   }
 
+  async function handleArchiveAll() {
+    if (isArchivingAll || !isAdmin || mode !== "active" || !liveCampaigns.length) return;
+    if (!window.confirm(`Archive all ${liveCampaigns.length} campaigns?`)) return;
+
+    setArchiveError(null);
+    setIsArchivingAll(true);
+    try {
+      const response = await fetch("/api/campaign-archive", {
+        body: JSON.stringify({
+          campaigns: liveCampaigns.map((campaign) => ({
+            campaignId: campaign.campaignId,
+            campaignName: campaign.campaignName,
+          })),
+          mode: "archive-all",
+        }),
+        headers: { "Content-Type": "application/json" },
+        method: "POST",
+      });
+
+      if (!response.ok) {
+        const payload = (await response.json().catch(() => ({}))) as { error?: string };
+        throw new Error(payload.error || "Archive update failed.");
+      }
+
+      setHiddenCampaignIds(new Set(liveCampaigns.map((campaign) => campaign.campaignId)));
+      setCurrentArchivedCount((current) => current + liveCampaigns.length);
+      router.refresh();
+    } catch (error) {
+      setArchiveError(error instanceof Error ? error.message : "Archive update failed.");
+    } finally {
+      setIsArchivingAll(false);
+    }
+  }
+
   return (
     <>
       <section className={cn(listingPanelClassName, "mb-6 p-4 sm:p-5")}>
@@ -401,8 +427,15 @@ export function CampaignTable({
 
             <div className="flex flex-col gap-2 sm:items-end">
               {negativeFilterControl}
-              {isAdmin && mode === "active" ? (
-                <StopNegativeCampaignsButton campaignCount={negativeCampaignCount} />
+              {isAdmin && mode === "active" && liveCampaigns.length ? (
+                <button
+                  className={cn(quietButtonClassName, "border-[#b42318]/20 text-[#b42318]")}
+                  disabled={isArchivingAll}
+                  onClick={handleArchiveAll}
+                  type="button"
+                >
+                  {isArchivingAll ? "Archiving campaigns..." : `Archive all campaigns (${liveCampaigns.length})`}
+                </button>
               ) : null}
               {query ? (
                 <Link
