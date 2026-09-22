@@ -5,7 +5,7 @@ const DEFAULT_LOOKBACK_DAYS = 14;
 const META_CACHE_TTL_MS = 60_000;
 const SAMPLE_PREFIX = "replace_with_";
 const MESSAGES_ALIASES = [
-  "messaging_conversation_started",
+  "onsite_conversion.total_messaging_connection",
 ];
 const FOLLOWERS_ALIASES = [
   "instagram_profile_follow",
@@ -45,6 +45,8 @@ const AD_CREATIVE_FIELDS =
 const AD_STATUS_FIELDS = "id,name,campaign_id,status,effective_status,configured_status";
 const metaResponseCache = new Map<string, { expiresAt: number; value: unknown }>();
 
+export type DataSource = "live" | "mock" | "unavailable";
+
 export type DateRange = {
   start: string;
   end: string;
@@ -63,9 +65,14 @@ type MetaInsightsRow = {
   adset_name?: string;
   campaign_id?: string;
   campaign_name?: string;
+  clicks?: string;
+  cpm?: string;
+  ctr?: string;
   date_start?: string;
+  frequency?: string;
   impressions?: string;
   instagram_profile_follow?: string;
+  instagram_profile_visits?: string;
   publisher_platform?: string;
   reach?: string;
   spend?: string;
@@ -137,8 +144,11 @@ type MetaEntity = {
   campaign_id?: string;
   configured_status?: string;
   effective_status?: string;
+  end_time?: string;
   id: string;
   name?: string;
+  objective?: string;
+  optimization_goal?: string;
   start_time?: string;
   status?: string;
   stop_time?: string;
@@ -163,8 +173,12 @@ type InsightsRequestOptions = {
 };
 
 export type MetricTotals = {
+  clicks: number;
+  cpm: number;
+  ctr: number;
   facebookPageLikes: number;
   followers: number;
+  frequency: number;
   impressions: number;
   messages: number;
   profileVisits: number;
@@ -177,6 +191,7 @@ export type CampaignSpend = {
   averageDailySpend: number;
   campaignId: string;
   campaignName: string;
+  objective?: string;
   spendInRange: number;
   status?: string;
   totalSpend: number;
@@ -197,7 +212,7 @@ export type SpendDashboardData = {
   campaigns: CampaignSpend[];
   daily: DailySpend[];
   range: DateRange;
-  source: "live" | "mock";
+  source: DataSource;
   summary: {
     averageDailySpend: number;
     daysInRange: number;
@@ -239,6 +254,8 @@ export type AdSetPerformance = MetricTotals & {
   ads: AdPerformance[];
   id: string;
   name: string;
+  optimizationGoal?: string;
+  status?: string;
 };
 
 export type CampaignDetailData = {
@@ -246,8 +263,9 @@ export type CampaignDetailData = {
   campaignId: string;
   campaignName: string;
   endDate?: string;
+  objective?: string;
   range: DateRange;
-  source: "live" | "mock";
+  source: DataSource;
   status?: string;
   totals: MetricTotals;
 };
@@ -456,7 +474,7 @@ function buildAccountEdgeUrl(edge: "campaigns" | "adsets" | "ads", fields: strin
   return url.toString();
 }
 
-function buildObjectEdgeUrl(objectId: string, edge: "ads", fields: string) {
+function buildObjectEdgeUrl(objectId: string, edge: "ads" | "adsets", fields: string) {
   const version = getApiVersion();
   const url = new URL(`https://graph.facebook.com/${version}/${objectId}/${edge}`);
   url.searchParams.set("fields", fields);
@@ -625,31 +643,36 @@ function sumExactActionValues(actions: MetaActionStat[] | undefined, actionTypes
   );
 }
 
-function sumProfileVisitActionValues(actions: MetaActionStat[] | undefined) {
-  if (!actions?.length) {
-    return 0;
-  }
-
-  return roundCount(
-    actions.reduce((sum, action) => {
-      if (!action.action_type || !isProfileVisitActionType(action.action_type)) {
-        return sum;
-      }
-
-      return sum + parseNumericValue(action.value);
-    }, 0),
-  );
-}
-
 function metricsFromInsights(row?: MetaInsightsRow): MetricTotals {
+  const clicks = roundCount(parseNumericValue(row?.clicks));
+  const impressions = roundCount(parseNumericValue(row?.impressions));
+  const reach = roundCount(parseNumericValue(row?.reach));
+  const spend = roundCurrency(convertAccountCurrencyAmount(parseNumericValue(row?.spend)));
+
   return {
+    clicks,
+    cpm: row?.cpm
+      ? roundCurrency(convertAccountCurrencyAmount(parseNumericValue(row.cpm)))
+      : impressions > 0
+        ? roundCurrency((spend / impressions) * 1000)
+        : 0,
+    ctr: row?.ctr
+      ? roundCurrency(parseNumericValue(row.ctr))
+      : impressions > 0
+        ? roundCurrency((clicks / impressions) * 100)
+        : 0,
     facebookPageLikes: sumExactActionValues(row?.actions, FACEBOOK_PAGE_LIKE_ACTION_TYPES),
     followers: roundCount(parseNumericValue(row?.instagram_profile_follow)),
-    impressions: roundCount(parseNumericValue(row?.impressions)),
+    frequency: row?.frequency
+      ? roundCurrency(parseNumericValue(row.frequency))
+      : reach > 0
+        ? roundCurrency(impressions / reach)
+        : 0,
+    impressions,
     messages: sumActionValues(row?.actions, MESSAGES_ALIASES),
-    profileVisits: sumProfileVisitActionValues(row?.actions),
-    reach: roundCount(parseNumericValue(row?.reach)),
-    spend: roundCurrency(convertAccountCurrencyAmount(parseNumericValue(row?.spend))),
+    profileVisits: roundCount(parseNumericValue(row?.instagram_profile_visits)),
+    reach,
+    spend,
   };
 }
 
@@ -736,6 +759,18 @@ function getRecognizedPublisherPlatform(platform?: string): AdDeliveryPlatform |
 
 function getAdDisplayStatus(ad?: MetaAdEntity) {
   return (ad?.effective_status || ad?.status)?.toUpperCase();
+}
+
+function getEntityDisplayStatus(
+  entity?: Pick<MetaEntity, "effective_status" | "status" | "configured_status" | "end_time" | "stop_time">,
+) {
+  if (isPastMetaDate(entity?.end_time) || isPastMetaDate(entity?.stop_time)) {
+    return "COMPLETED";
+  }
+
+  return (
+    entity?.effective_status || entity?.status || entity?.configured_status
+  )?.toUpperCase();
 }
 
 function getAdStatusValues(ad: MetaAdStatusEntity) {
@@ -867,8 +902,12 @@ function buildAdPlatformMap(rows: MetaInsightsRow[]) {
 
 function zeroTotals(): MetricTotals {
   return {
+    clicks: 0,
+    cpm: 0,
+    ctr: 0,
     facebookPageLikes: 0,
     followers: 0,
+    frequency: 0,
     impressions: 0,
     messages: 0,
     profileVisits: 0,
@@ -877,15 +916,25 @@ function zeroTotals(): MetricTotals {
   };
 }
 
-function mergeTotals(base: MetricTotals, next: MetricTotals): MetricTotals {
+function mergeAdditiveTotals(base: MetricTotals, next: MetricTotals): MetricTotals {
+  const clicks = roundCount(base.clicks + next.clicks);
+  const impressions = roundCount(base.impressions + next.impressions);
+  const spend = roundCurrency(base.spend + next.spend);
+
   return {
+    clicks,
+    cpm: impressions > 0 ? roundCurrency((spend / impressions) * 1000) : 0,
+    ctr: impressions > 0 ? roundCurrency((clicks / impressions) * 100) : 0,
     facebookPageLikes: roundCount(base.facebookPageLikes + next.facebookPageLikes),
     followers: roundCount(base.followers + next.followers),
-    impressions: roundCount(base.impressions + next.impressions),
+    frequency: 0,
+    impressions,
     messages: roundCount(base.messages + next.messages),
     profileVisits: roundCount(base.profileVisits + next.profileVisits),
-    reach: roundCount(base.reach + next.reach),
-    spend: roundCurrency(base.spend + next.spend),
+    // Reach is deduplicated by Meta and cannot be added across child entities.
+    // Leave fallback aggregates unknown instead of presenting an inflated value.
+    reach: 0,
+    spend,
   };
 }
 
@@ -925,7 +974,10 @@ export function sanitizeDateRange(startInput?: string | null, endInput?: string 
   return { start: end, end: start };
 }
 
-export function getEmptySpendDashboardData(inputRange?: Partial<DateRange>): SpendDashboardData {
+export function getEmptySpendDashboardData(
+  inputRange?: Partial<DateRange>,
+  source: DataSource = "unavailable",
+): SpendDashboardData {
   const range = sanitizeDateRange(inputRange?.start, inputRange?.end);
   const dates = createDateSeries(range);
 
@@ -935,7 +987,7 @@ export function getEmptySpendDashboardData(inputRange?: Partial<DateRange>): Spe
     campaigns: [],
     daily: dates.map((date) => ({ date, spend: 0 })),
     range,
-    source: "live",
+    source,
     summary: {
       averageDailySpend: 0,
       daysInRange: dates.length,
@@ -951,6 +1003,7 @@ export function getEmptySpendDashboardData(inputRange?: Partial<DateRange>): Spe
 export function getEmptyCampaignDetailData(
   campaignId: string,
   inputRange?: Partial<DateRange>,
+  source: DataSource = "unavailable",
 ): CampaignDetailData {
   const range = sanitizeDateRange(inputRange?.start, inputRange?.end);
 
@@ -959,7 +1012,7 @@ export function getEmptyCampaignDetailData(
     campaignId,
     campaignName: `Campaign ${campaignId}`,
     range,
-    source: "live",
+    source,
     status: undefined,
     totals: zeroTotals(),
   };
@@ -1016,29 +1069,28 @@ function getCampaignDisplayStatus(campaign?: MetaEntity) {
     return undefined;
   }
 
-  const configuredStatuses = [
-    campaign.configured_status,
-    campaign.status,
-  ]
-    .filter(Boolean)
-    .map((status) => (status as string).toUpperCase());
-  const statuses = [
-    campaign.effective_status,
-    campaign.configured_status,
-    campaign.status,
-  ]
-    .filter(Boolean)
-    .map((status) => (status as string).toUpperCase());
+  const effectiveStatus = campaign.effective_status?.toUpperCase();
+  const configuredStatus = campaign.configured_status?.toUpperCase();
+  const status = campaign.status?.toUpperCase();
 
-  if (statuses.some((status) => status.includes("COMPLETED")) || isPastMetaDate(campaign.stop_time)) {
+  if (
+    [effectiveStatus, configuredStatus, status].some((value) =>
+      value?.includes("COMPLETED"),
+    ) ||
+    isPastMetaDate(campaign.stop_time)
+  ) {
     return "COMPLETED";
   }
 
-  if (configuredStatuses.includes("ACTIVE") || campaign.effective_status?.toUpperCase() === "ACTIVE") {
+  if (effectiveStatus) {
+    return effectiveStatus;
+  }
+
+  if (configuredStatus === "ACTIVE" || status === "ACTIVE") {
     return "ACTIVE";
   }
 
-  return statuses[0] || campaign.status;
+  return configuredStatus || status || campaign.status;
 }
 
 function buildOverviewData(
@@ -1119,6 +1171,7 @@ function buildOverviewData(
             : 0,
         campaignId,
         campaignName: campaign?.name || inRange?.name || campaignNames.get(campaignId) || `Campaign ${campaignId}`,
+        objective: campaign?.objective,
         spendInRange: inRange?.spend ?? 0,
         status: getCampaignDisplayStatus(campaign),
         totalSpend,
@@ -1174,6 +1227,8 @@ function buildCampaignHierarchyFromInsights(
   adInsights: MetaInsightsRow[],
   adCreativeMap = new Map<string, AdCreativeLinkData>(),
   adPlatformMap = new Map<string, AdDeliveryPlatform>(),
+  adSetStatusMap = new Map<string, string | undefined>(),
+  adSetOptimizationGoalMap = new Map<string, string | undefined>(),
 ) {
   const hierarchy = new Map<string, AdSetPerformance>();
 
@@ -1187,6 +1242,8 @@ function buildCampaignHierarchyFromInsights(
       ads: [],
       id: row.adset_id,
       name: row.adset_name || `Ad Set ${row.adset_id}`,
+      optimizationGoal: adSetOptimizationGoalMap.get(row.adset_id),
+      status: adSetStatusMap.get(row.adset_id),
     });
   }
 
@@ -1215,6 +1272,8 @@ function buildCampaignHierarchyFromInsights(
         ads: [],
         id: row.adset_id,
         name: row.adset_name || `Ad Set ${row.adset_id}`,
+        optimizationGoal: adSetOptimizationGoalMap.get(row.adset_id),
+        status: adSetStatusMap.get(row.adset_id),
       };
 
     currentAdSet.ads.push(ad);
@@ -1226,10 +1285,11 @@ function buildCampaignHierarchyFromInsights(
 
   return [...hierarchy.values()]
     .map((adSet) => {
-      const rawAdsTotals = adSet.ads.reduce((sum, ad) => mergeTotals(sum, ad), zeroTotals());
+      const rawAdsTotals = adSet.ads.reduce((sum, ad) => mergeAdditiveTotals(sum, ad), zeroTotals());
       const levelTotals =
         adSet.ads.length > 0 &&
         adSet.spend === 0 &&
+        adSet.clicks === 0 &&
         adSet.facebookPageLikes === 0 &&
         adSet.impressions === 0 &&
         adSet.messages === 0 &&
@@ -1238,18 +1298,24 @@ function buildCampaignHierarchyFromInsights(
         adSet.reach === 0
           ? rawAdsTotals
           : {
+              clicks: adSet.clicks,
+              cpm: adSet.cpm,
+              ctr: adSet.ctr,
               facebookPageLikes: adSet.facebookPageLikes,
               followers: adSet.followers,
+              frequency: adSet.frequency,
               impressions: adSet.impressions,
               messages: adSet.messages,
               profileVisits: adSet.profileVisits,
               reach: adSet.reach,
               spend: adSet.spend,
+              optimizationGoal: adSet.optimizationGoal,
+              status: adSet.status,
             };
       const sortedAds = adSet.ads.sort((left, right) => right.spend - left.spend);
       const displayAds = sortedAds;
       const displayAdsTotals = displayAds.reduce(
-        (sum, ad) => mergeTotals(sum, ad),
+        (sum, ad) => mergeAdditiveTotals(sum, ad),
         zeroTotals(),
       );
       const totals = {
@@ -1262,13 +1328,15 @@ function buildCampaignHierarchyFromInsights(
         ads: displayAds,
         id: adSet.id,
         name: adSet.name,
+        optimizationGoal: adSet.optimizationGoal,
+        status: adSet.status,
       };
     })
     .sort((left, right) => right.spend - left.spend);
 }
 
 async function fetchCampaignEntity(campaignId: string) {
-  const fields = "id,name,status,effective_status,configured_status,start_time,stop_time";
+  const fields = "id,name,objective,status,effective_status,configured_status,start_time,stop_time";
 
   try {
     return await fetchMetaJson<MetaEntity>(buildGraphNodeUrl(campaignId, fields));
@@ -1286,6 +1354,13 @@ async function fetchCampaignScopedInsights(campaignId: string, options: Insights
   try {
     return await fetchAllPages<MetaInsightsRow>(buildObjectInsightsUrl(campaignId, options));
   } catch (error) {
+    if (options.level === "ad") {
+      console.warn(
+        "Meta campaign-scoped ad insights fetch failed; account-level ad insights are not a valid fallback.",
+        error instanceof Error ? error.message : error,
+      );
+      throw error;
+    }
     console.warn(
       "Meta campaign-scoped insights fetch failed; falling back to account insights.",
       error instanceof Error ? error.message : error,
@@ -1402,6 +1477,24 @@ export async function pauseCampaignAd(campaignId: string, adId: string) {
   };
 }
 
+async function fetchCampaignAdSetEntities(campaignId: string) {
+  try {
+    return await fetchAllPages<MetaEntity>(
+      buildObjectEdgeUrl(
+        campaignId,
+        "adsets",
+        "id,name,campaign_id,optimization_goal,status,effective_status,configured_status,start_time,end_time",
+      ),
+    );
+  } catch (error) {
+    console.warn(
+      "Meta ad set status fetch failed; continuing without parent delivery statuses.",
+      error instanceof Error ? error.message : error,
+    );
+    return [];
+  }
+}
+
 export async function pauseCampaign(campaignId: string) {
   const normalizedCampaignId = campaignId.trim();
 
@@ -1470,7 +1563,7 @@ export async function getSpendDashboardData(inputRange?: Partial<DateRange>) {
     fetchAllPages<MetaEntity>(
       buildAccountEdgeUrl(
         "campaigns",
-        "id,name,status,effective_status,configured_status,start_time,stop_time",
+        "id,name,objective,status,effective_status,configured_status,start_time,stop_time",
       ),
     ),
     fetchAllPages<MetaInsightsRow>(
@@ -1506,6 +1599,7 @@ export async function getCampaignDetailData(
 
   const [
     campaignEntity,
+    adSetEntities,
     lifetimeRows,
     adSetInsights,
     adInsights,
@@ -1513,16 +1607,17 @@ export async function getCampaignDetailData(
     adPlatformRows,
   ] = await Promise.all([
     fetchCampaignEntity(campaignId),
+    fetchCampaignAdSetEntities(campaignId),
     fetchCampaignScopedInsights(campaignId, {
       datePreset: "maximum",
-      fields: "campaign_id,campaign_name,date_start,date_stop,spend,impressions,reach,instagram_profile_follow,actions",
+      fields: "campaign_id,campaign_name,date_start,date_stop,clicks,ctr,cpm,frequency,spend,impressions,reach,instagram_profile_follow,instagram_profile_visits,actions",
       level: "campaign",
       timeIncrement: "all_days",
       useUnifiedAttributionSetting: true,
     }),
     fetchCampaignScopedInsights(campaignId, {
       datePreset: "maximum",
-      fields: "campaign_id,campaign_name,adset_id,adset_name,impressions,reach,instagram_profile_follow,spend,actions",
+      fields: "campaign_id,campaign_name,adset_id,adset_name,clicks,ctr,cpm,frequency,impressions,reach,instagram_profile_follow,instagram_profile_visits,spend,actions",
       level: "adset",
       timeIncrement: "all_days",
       useUnifiedAttributionSetting: true,
@@ -1530,7 +1625,7 @@ export async function getCampaignDetailData(
     fetchCampaignScopedInsights(campaignId, {
       datePreset: "maximum",
       fields:
-        "campaign_id,campaign_name,adset_id,adset_name,ad_id,ad_name,impressions,reach,instagram_profile_follow,spend,actions",
+        "campaign_id,campaign_name,adset_id,adset_name,ad_id,ad_name,clicks,ctr,cpm,frequency,impressions,reach,instagram_profile_follow,instagram_profile_visits,spend,actions",
       level: "ad",
       timeIncrement: "all_days",
       useUnifiedAttributionSetting: true,
@@ -1542,14 +1637,22 @@ export async function getCampaignDetailData(
   const lifetimeRow = lifetimeRows.find((row) => !row.campaign_id || row.campaign_id === campaignId);
   const adCreativeMap = buildAdCreativeMap(adsWithCreative);
   const adPlatformMap = buildAdPlatformMap(adPlatformRows);
+  const adSetStatusMap = new Map(
+    adSetEntities.map((adSet) => [adSet.id, getEntityDisplayStatus(adSet)]),
+  );
+  const adSetOptimizationGoalMap = new Map(
+    adSetEntities.map((adSet) => [adSet.id, adSet.optimization_goal]),
+  );
   const hierarchy = buildCampaignHierarchyFromInsights(
     campaignId,
     adSetInsights,
     adInsights,
     adCreativeMap,
     adPlatformMap,
+    adSetStatusMap,
+    adSetOptimizationGoalMap,
   );
-  const hierarchyTotals = hierarchy.reduce((sum, adSet) => mergeTotals(sum, adSet), zeroTotals());
+  const hierarchyTotals = hierarchy.reduce((sum, adSet) => mergeAdditiveTotals(sum, adSet), zeroTotals());
   const totals = lifetimeRow ? metricsFromInsights(lifetimeRow) : hierarchyTotals;
   const range = getCampaignLifetimeRange(campaignId, lifetimeRows, campaignEntity);
 
@@ -1567,6 +1670,7 @@ export async function getCampaignDetailData(
       adInsights.find((row) => row.campaign_name)?.campaign_name ||
       `Campaign ${campaignId}`,
     endDate: formatMetaDate(campaignEntity?.stop_time),
+    objective: campaignEntity?.objective,
     range,
     source: "live",
     status: getCampaignDisplayStatus(campaignEntity),
@@ -1623,34 +1727,28 @@ export async function getCampaignDebugData(campaignId: string): Promise<Campaign
   }
 
   const [campaignInsights, adSetInsights, adInsights] = await Promise.all([
-    fetchAllPages<MetaInsightsRow>(
-      buildAccountInsightsUrl({
-        datePreset: "maximum",
-        fields: "campaign_id,campaign_name,spend,impressions,reach,instagram_profile_follow,actions",
-        level: "campaign",
-        timeIncrement: "all_days",
-        useUnifiedAttributionSetting: true,
-      }),
-    ),
-    fetchAllPages<MetaInsightsRow>(
-      buildAccountInsightsUrl({
-        datePreset: "maximum",
-        fields: "campaign_id,campaign_name,adset_id,adset_name,impressions,reach,instagram_profile_follow,spend,actions",
-        level: "adset",
-        timeIncrement: "all_days",
-        useUnifiedAttributionSetting: true,
-      }),
-    ),
-    fetchAllPages<MetaInsightsRow>(
-      buildAccountInsightsUrl({
-        datePreset: "maximum",
-        fields:
-          "campaign_id,campaign_name,adset_id,adset_name,ad_id,ad_name,impressions,reach,instagram_profile_follow,actions",
-        level: "ad",
-        timeIncrement: "all_days",
-        useUnifiedAttributionSetting: true,
-      }),
-    ),
+    fetchCampaignScopedInsights(campaignId, {
+      datePreset: "maximum",
+      fields: "campaign_id,campaign_name,clicks,ctr,cpm,frequency,spend,impressions,reach,instagram_profile_follow,instagram_profile_visits,actions",
+      level: "campaign",
+      timeIncrement: "all_days",
+      useUnifiedAttributionSetting: true,
+    }),
+    fetchCampaignScopedInsights(campaignId, {
+      datePreset: "maximum",
+      fields: "campaign_id,campaign_name,adset_id,adset_name,clicks,ctr,cpm,frequency,impressions,reach,instagram_profile_follow,instagram_profile_visits,spend,actions",
+      level: "adset",
+      timeIncrement: "all_days",
+      useUnifiedAttributionSetting: true,
+    }),
+    fetchCampaignScopedInsights(campaignId, {
+      datePreset: "maximum",
+      fields:
+        "campaign_id,campaign_name,adset_id,adset_name,ad_id,ad_name,clicks,ctr,cpm,frequency,impressions,reach,instagram_profile_follow,instagram_profile_visits,spend,actions",
+      level: "ad",
+      timeIncrement: "all_days",
+      useUnifiedAttributionSetting: true,
+    }),
   ]);
 
   const filteredCampaigns = campaignInsights.filter((item) => item.campaign_id === campaignId);
@@ -1659,16 +1757,19 @@ export async function getCampaignDebugData(campaignId: string): Promise<Campaign
   const matchedAdSetInsights = adSetInsights.filter((item) => item.campaign_id === campaignId);
   const matchedAdInsights = adInsights.filter((item) => item.campaign_id === campaignId);
   const campaignInsight = filteredCampaigns[0];
-  const campaignLevel = filteredCampaigns.reduce(
-    (sum, item) => mergeTotals(sum, metricsFromInsights(item)),
-    zeroTotals(),
-  );
+  const campaignLevel =
+    filteredCampaigns.length === 1
+      ? metricsFromInsights(filteredCampaigns[0])
+      : filteredCampaigns.reduce(
+          (sum, item) => mergeAdditiveTotals(sum, metricsFromInsights(item)),
+          zeroTotals(),
+        );
   const adSetLevelSum = filteredAdSets.reduce(
-    (sum, item) => mergeTotals(sum, metricsFromInsights(item)),
+    (sum, item) => mergeAdditiveTotals(sum, metricsFromInsights(item)),
     zeroTotals(),
   );
   const adLevelSum = filteredAds.reduce(
-    (sum, item) => mergeTotals(sum, metricsFromInsights(item)),
+    (sum, item) => mergeAdditiveTotals(sum, metricsFromInsights(item)),
     zeroTotals(),
   );
   const hierarchy = buildCampaignHierarchyFromInsights(campaignId, adSetInsights, adInsights);

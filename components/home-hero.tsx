@@ -1,5 +1,6 @@
 import { adminLogoutAction } from "@/app/actions/admin-auth";
 import { StatusPill } from "@/components/ui/status-pill";
+import type { DataSource } from "@/lib/meta";
 import {
   eyebrowClassName,
   panelClassName,
@@ -10,7 +11,7 @@ import { cn } from "@/lib/utils";
 type HomeHeroProps = {
   accountId: string;
   rangeLabel: string;
-  source: "live" | "mock";
+  source: DataSource;
 };
 
 function MetaItem({ label, value }: { label: string; value: string }) {

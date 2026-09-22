@@ -77,6 +77,10 @@ export default async function ArchivePage({ searchParams }: PageProps) {
   const budgets = await getAllCampaignBudgets();
   const archivedCampaigns = await getArchivedCampaigns();
   const archiveRows = buildArchivedCampaignRows(data.campaigns, archivedCampaigns);
+  const dataUnavailable = data.source === "unavailable";
+  const visibleErrorMessage =
+    errorMessage ||
+    "بيانات ميتا المباشرة غير متاحة حالياً. تحقق من بيانات الاعتماد وحاول مرة أخرى.";
 
   return (
     <main className="mx-auto w-full max-w-shell px-3 py-4 sm:px-4 sm:py-6 lg:px-7 lg:py-8">
@@ -95,25 +99,27 @@ export default async function ArchivePage({ searchParams }: PageProps) {
           <DateRangeForm action="/archive" range={data.range} />
         </div>
 
-        {errorMessage ? (
+        {dataUnavailable ? (
           <ErrorPanel
-            message={errorMessage}
+            message={visibleErrorMessage}
             title="تعذر تحميل بيانات ميتا المباشرة."
           />
         ) : null}
 
-        <CampaignTable
-          actionPath="/archive"
-          budgets={budgets}
-          campaigns={archiveRows}
-          emptyMessage="لا توجد حملات مؤرشفة حالياً."
-          initialQuery={query}
-          mode="archive"
-          range={data.range}
-          searchEmptyMessage="لا توجد حملات مؤرشفة مطابقة لهذا البحث."
-          secondaryHref="/"
-          secondaryLabel="العودة للصفحة الرئيسية"
-        />
+        {!dataUnavailable ? (
+          <CampaignTable
+            actionPath="/archive"
+            budgets={budgets}
+            campaigns={archiveRows}
+            emptyMessage="لا توجد حملات مؤرشفة حالياً."
+            initialQuery={query}
+            mode="archive"
+            range={data.range}
+            searchEmptyMessage="لا توجد حملات مؤرشفة مطابقة لهذا البحث."
+            secondaryHref="/"
+            secondaryLabel="العودة للصفحة الرئيسية"
+          />
+        ) : null}
       </PageScene>
     </main>
   );

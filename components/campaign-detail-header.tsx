@@ -291,7 +291,7 @@ export function CampaignDetailHeader({
 
           <MobileStatsRail title="المقاييس العددية">
             <MobileStatCard
-              label="الرسائل"
+              label="إجمالي المحادثات من الإعلان"
               value={new Intl.NumberFormat("en-US").format(
                 campaign.totals.messages
               )}
@@ -300,6 +300,12 @@ export function CampaignDetailHeader({
               label="متابعات إنستغرام من الإعلانات"
               value={new Intl.NumberFormat("en-US").format(
                 campaign.totals.followers
+              )}
+            />
+            <MobileStatCard
+              label="زيارات الملف الشخصي"
+              value={new Intl.NumberFormat("en-US").format(
+                campaign.totals.profileVisits
               )}
             />
             <MobileStatCard
@@ -359,9 +365,9 @@ export function CampaignDetailHeader({
 
         <div className="order-6 hidden md:block">
           <SectionLabel>المقاييس العددية</SectionLabel>
-          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-6">
             <DetailStat
-              label="الرسائل"
+              label="إجمالي المحادثات من الإعلان"
               value={new Intl.NumberFormat("en-US").format(
                 campaign.totals.messages
               )}
@@ -370,6 +376,12 @@ export function CampaignDetailHeader({
               label="متابعات إنستغرام من الإعلانات"
               value={new Intl.NumberFormat("en-US").format(
                 campaign.totals.followers
+              )}
+            />
+            <DetailStat
+              label="زيارات الملف الشخصي"
+              value={new Intl.NumberFormat("en-US").format(
+                campaign.totals.profileVisits
               )}
             />
             <DetailStat

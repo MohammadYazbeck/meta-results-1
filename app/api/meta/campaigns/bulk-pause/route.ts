@@ -23,6 +23,16 @@ export async function POST() {
       getAllCampaignBudgets(),
       getArchivedCampaigns(),
     ]);
+
+    if (data.source === "unavailable") {
+      return NextResponse.json(
+        {
+          error: "Live Meta data is unavailable. No campaigns were changed.",
+        },
+        { status: 503 },
+      );
+    }
+
     const archivedCampaignIds = new Set(Object.keys(archivedCampaigns));
     const eligibleCampaigns = data.campaigns.filter((campaign) => {
       const totalPaid = budgets[campaign.campaignId]?.totalPaid ?? 0;

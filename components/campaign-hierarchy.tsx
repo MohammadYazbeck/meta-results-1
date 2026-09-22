@@ -3,6 +3,7 @@
 import { useState, type FormEvent } from "react";
 
 import { HierarchyBadge } from "@/components/ui/hierarchy-badge";
+import { getAdPerformanceRating } from "@/lib/ad-recommendations";
 import { formatDisplayCurrency } from "@/lib/currency";
 import { type CampaignDetailData } from "@/lib/meta";
 import { cn } from "@/lib/utils";
@@ -14,7 +15,11 @@ type CampaignHierarchyProps = {
   canStopAds: boolean;
 };
 
-type FlatAd = CampaignDetailData["adSets"][number]["ads"][number];
+type FlatAd = CampaignDetailData["adSets"][number]["ads"][number] & {
+  adSetId: string;
+  adSetStatus?: string;
+  optimizationGoal?: string;
+};
 
 function formatInteger(value: number) {
   if (!Number.isFinite(value)) {
@@ -58,22 +63,29 @@ function AdMetric({ label, value }: { label: string; value: string }) {
   );
 }
 
-function isAdRunning(ad: FlatAd, campaignStatus?: CampaignDetailData["status"]) {
+function isAdRunning(
+  ad: FlatAd,
+  campaignStatus?: CampaignDetailData["status"],
+  adSetStatus?: string,
+) {
   const normalizedCampaignStatus = campaignStatus?.toUpperCase();
-  const campaignAllowsDelivery =
-    !normalizedCampaignStatus || normalizedCampaignStatus === "ACTIVE";
+  const normalizedAdSetStatus = adSetStatus?.toUpperCase();
+  const campaignAllowsDelivery = normalizedCampaignStatus === "ACTIVE";
+  const adSetAllowsDelivery = normalizedAdSetStatus === "ACTIVE";
 
-  return campaignAllowsDelivery && ad.status?.toUpperCase() === "ACTIVE";
+  return campaignAllowsDelivery && adSetAllowsDelivery && ad.status?.toUpperCase() === "ACTIVE";
 }
 
 function AdThumbnail({
   ad,
   campaignStatus,
+  adSetStatus,
 }: {
   ad: FlatAd;
   campaignStatus?: CampaignDetailData["status"];
+  adSetStatus?: string;
 }) {
-  const isRunning = isAdRunning(ad, campaignStatus);
+  const isRunning = isAdRunning(ad, campaignStatus, adSetStatus);
   const primaryLink = ad.permalinkUrl || ad.destinationUrl;
   const media = ad.thumbnailUrl ? (
     <img
@@ -383,7 +395,14 @@ function getAdSortTimestamp(ad: FlatAd) {
 
 function flattenAds(adSets: CampaignDetailData["adSets"]) {
   return adSets
-    .flatMap((adSet) => adSet.ads)
+    .flatMap((adSet) =>
+      adSet.ads.map((ad) => ({
+        ...ad,
+        adSetId: adSet.id,
+        adSetStatus: adSet.status,
+        optimizationGoal: adSet.optimizationGoal,
+      })),
+    )
     .sort((left, right) => {
       const dateSort = getAdSortTimestamp(right) - getAdSortTimestamp(left);
 
@@ -424,7 +443,14 @@ export function CampaignHierarchy({
     <div className="grid gap-3 px-5 pb-5 pt-2 sm:px-6 sm:pb-6">
       {ads.map((ad: FlatAd, adIndex) => {
         const displayAd = stoppedAdIds.has(ad.id) ? { ...ad, status: "PAUSED" } : ad;
-        const isRunning = isAdRunning(displayAd, campaignStatus);
+        const isRunning = isAdRunning(displayAd, campaignStatus, ad.adSetStatus);
+        const performanceRating = getAdPerformanceRating(
+          displayAd,
+          campaignStatus,
+          ad.adSetStatus,
+          ad.optimizationGoal,
+          adSets.find((adSet) => adSet.id === ad.adSetId)?.ads,
+        );
 
         return (
           <article
@@ -444,7 +470,11 @@ export function CampaignHierarchy({
             />
 
             <div className="grid gap-3 lg:grid-cols-[minmax(116px,150px)_minmax(0,1fr)] lg:items-start">
-              <AdThumbnail ad={displayAd} campaignStatus={campaignStatus} />
+              <AdThumbnail
+                ad={displayAd}
+                adSetStatus={ad.adSetStatus}
+                campaignStatus={campaignStatus}
+              />
 
               <div className="grid min-w-0 gap-2">
                 <div className="flex flex-wrap gap-2">
@@ -465,9 +495,25 @@ export function CampaignHierarchy({
                     {`نشر ${formatPublishedDate(ad.createdAt)}`}
                   </span>
                 </div>
-                <strong className="break-words text-[15px] font-medium text-ink">
-                  {ad.name}
-                </strong>
+                <div className="flex flex-wrap items-center gap-2">
+                  <strong className="break-words text-[15px] font-medium text-ink">
+                    {ad.name}
+                  </strong>
+                  <span
+                    className={cn(
+                      "inline-flex max-w-full rounded-full border px-3 py-1 text-[12px] font-medium leading-5",
+                      performanceRating.tone === "excellent"
+                        ? "border-[#047857]/25 bg-[#e7f8ef] text-[#036b4f]"
+                        : performanceRating.tone === "good"
+                        ? "border-[#10b981]/20 bg-[#f0fbf5] text-[#047857]"
+                        : performanceRating.tone === "under"
+                          ? "border-[#c2410c]/20 bg-[#fff4ed] text-[#a33a0b]"
+                          : "border-[#8e8e93]/20 bg-[#f4f4f5] text-[#6e6e73]",
+                    )}
+                  >
+                    {`التقييم: ${performanceRating.label}`}
+                  </span>
+                </div>
                 <div className="flex flex-wrap items-center gap-2">
                   <AdLink ad={ad} />
                   {canStopAds && isRunning ? (
@@ -488,8 +534,9 @@ export function CampaignHierarchy({
 
             <div className="grid grid-cols-2 gap-2 min-[560px]:grid-cols-3 xl:grid-cols-6">
               <AdMetric label="المصروف" value={formatDisplayCurrency(ad.spend)} />
-              <AdMetric label="الرسائل" value={formatInteger(ad.messages)} />
+              <AdMetric label="إجمالي المحادثات من الإعلان" value={formatInteger(ad.messages)} />
               <AdMetric label="متابعات إنستغرام من الإعلان" value={formatInteger(ad.followers)} />
+              <AdMetric label="زيارات الملف الشخصي" value={formatInteger(ad.profileVisits)} />
               <AdMetric
                 label="إعجابات صفحة فيسبوك"
                 value={formatInteger(ad.facebookPageLikes)}

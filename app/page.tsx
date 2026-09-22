@@ -149,6 +149,10 @@ export default async function HomePage({ searchParams }: PageProps) {
   );
   const isAdmin = await isAdminAuthenticated();
   const rangeLabel = getSuggestedRangeLabel(data.range);
+  const dataUnavailable = data.source === "unavailable";
+  const visibleErrorMessage =
+    errorMessage ||
+    "بيانات ميتا المباشرة غير متاحة حالياً. تحقق من بيانات الاعتماد وحاول مرة أخرى.";
 
   return (
     <main className="mx-auto w-full max-w-shell px-3 py-4 sm:px-4 sm:py-6 lg:px-7 lg:py-8">
@@ -163,36 +167,40 @@ export default async function HomePage({ searchParams }: PageProps) {
           <DateRangeForm range={data.range} />
         </div>
 
-        {errorMessage ? (
+        {dataUnavailable ? (
           <ErrorPanel
-            message={errorMessage}
-            title="الواجهة جاهزة، لكن البيانات المباشرة تحتاج System User Token ثابت."
+            message={visibleErrorMessage}
+            title="تعذر تحميل بيانات ميتا المباشرة."
           />
         ) : null}
 
-        <DashboardSummaryGrid
-          negativeRemaining={negativeRemaining}
-          remaining={remaining}
-          summary={visibleSummary}
-          totalPaid={totalPaid}
-        />
+        {!dataUnavailable ? (
+          <>
+            <DashboardSummaryGrid
+              negativeRemaining={negativeRemaining}
+              remaining={remaining}
+              summary={visibleSummary}
+              totalPaid={totalPaid}
+            />
 
-        <section className="mb-6">
-          <SpendChart daily={visibleDaily} />
-        </section>
+            <section className="mb-6">
+              <SpendChart daily={visibleDaily} />
+            </section>
 
-        <CampaignTable
-          archivedCount={Object.keys(archivedCampaigns).length}
-          budgets={budgets}
-          campaigns={activeCampaigns}
-          emptyMessage="لا توجد بيانات حملات غير مؤرشفة لهذه الفترة."
-          initialQuery={query}
-          isAdmin={isAdmin}
-          range={data.range}
-          searchEmptyMessage="لا توجد حملات مطابقة لهذا البحث."
-          secondaryHref="/archive"
-          secondaryLabel="الحملات المؤرشفة"
-        />
+            <CampaignTable
+              archivedCount={Object.keys(archivedCampaigns).length}
+              budgets={budgets}
+              campaigns={activeCampaigns}
+              emptyMessage="لا توجد بيانات حملات غير مؤرشفة لهذه الفترة."
+              initialQuery={query}
+              isAdmin={isAdmin}
+              range={data.range}
+              searchEmptyMessage="لا توجد حملات مطابقة لهذا البحث."
+              secondaryHref="/archive"
+              secondaryLabel="الحملات المؤرشفة"
+            />
+          </>
+        ) : null}
       </PageScene>
     </main>
   );

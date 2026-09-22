@@ -14,6 +14,17 @@ export async function GET(request: NextRequest) {
       start: getOptionalSearchParam(searchParams.get("start")),
     });
 
+    if (data.source === "unavailable") {
+      return NextResponse.json(
+        {
+          error: "Live Meta data is unavailable.",
+        },
+        {
+          status: 503,
+        },
+      );
+    }
+
     return NextResponse.json(data);
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unexpected server error";

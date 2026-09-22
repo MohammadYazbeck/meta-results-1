@@ -68,27 +68,34 @@ export default async function CampaignDetailPage({ params }: PageProps) {
     (sum, adSet) => sum + adSet.ads.length,
     0,
   );
+  const dataUnavailable = campaign.source === "unavailable";
+  const visibleErrorMessage =
+    errorMessage ||
+    "بيانات ميتا المباشرة غير متاحة حالياً. تحقق من بيانات الاعتماد وحاول مرة أخرى.";
 
   return (
     <main className="mx-auto w-full max-w-detail px-3 py-4 sm:px-4 sm:py-6 lg:px-7 lg:py-8">
       <PageScene variant="campaign">
-        <CampaignDetailHeader
-          campaign={campaign}
-          isAdmin={isAdmin}
-          rangeLabel={rangeLabel}
-          totalAds={totalAds}
-          totalPaid={totalPaid}
-          wallet={wallet}
-        />
-
-        {errorMessage ? (
-          <ErrorPanel
-            message={errorMessage}
-            title="يتم عرض التقرير حالياً بدون البيانات المباشرة."
+        {!dataUnavailable ? (
+          <CampaignDetailHeader
+            campaign={campaign}
+            isAdmin={isAdmin}
+            rangeLabel={rangeLabel}
+            totalAds={totalAds}
+            totalPaid={totalPaid}
+            wallet={wallet}
           />
         ) : null}
 
-        <section className="grid gap-6 lg:gap-7">
+        {dataUnavailable ? (
+          <ErrorPanel
+            message={visibleErrorMessage}
+            title="تعذر تحميل بيانات ميتا المباشرة."
+          />
+        ) : null}
+
+        {!dataUnavailable ? (
+          <section className="grid gap-6 lg:gap-7">
           <section className={cn(panelClassName, "overflow-hidden")}>
             <SectionHeading
               action={
@@ -124,7 +131,8 @@ export default async function CampaignDetailPage({ params }: PageProps) {
               />
             </div>
           ) : null}
-        </section>
+          </section>
+        ) : null}
       </PageScene>
     </main>
   );
