@@ -60,12 +60,12 @@ function FinancialMetric({
   const isOrange = tone === "orange";
 
   return (
-    <div className="flex min-w-0 items-center justify-between gap-1 rounded-[18px] bg-white/86 p-3 shadow-[0_8px_24px_rgba(15,23,42,0.055)] ring-1 ring-black/[0.04] sm:gap-3 sm:rounded-[20px] sm:p-4">
-      <div className="min-w-0 text-right">
-        <span className="block text-[10px] font-semibold leading-4 text-muted sm:text-[13px]">{label}</span>
+    <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-x-1.5 gap-y-2 rounded-[18px] bg-white/86 p-2.5 shadow-[0_8px_24px_rgba(15,23,42,0.055)] ring-1 ring-black/[0.04] sm:flex sm:justify-between sm:gap-3 sm:rounded-[20px] sm:p-4">
+      <div className="contents min-w-0 text-right sm:block">
+        <span className="col-start-1 row-start-1 block min-w-0 text-[10px] font-semibold leading-4 text-muted sm:text-[13px]">{label}</span>
         <strong
           className={cn(
-            "mt-1.5 block break-words font-display text-[clamp(1rem,4.5vw,1.75rem)] font-bold leading-none tabular-nums sm:mt-2",
+            "col-span-2 row-start-2 block min-w-0 whitespace-nowrap font-display text-[clamp(0.72rem,3.2vw,1.75rem)] font-bold leading-none tracking-[-0.02em] tabular-nums sm:mt-2 sm:text-[clamp(1rem,2.4vw,1.75rem)]",
             isOrange ? "text-[#f05a12]" : "text-ink",
           )}
           dir="ltr"
@@ -75,7 +75,7 @@ function FinancialMetric({
       </div>
       <span
         className={cn(
-          "inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl sm:h-11 sm:w-11 sm:rounded-2xl",
+          "col-start-2 row-start-1 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-xl sm:h-11 sm:w-11 sm:rounded-2xl",
           isOrange ? "bg-[#fff0e7] text-[#f05a12]" : "bg-[#f1f3f7] text-[#596273]",
         )}
       >
