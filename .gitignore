@@ -1,6 +1,7 @@
 .next
 node_modules
 .env.local
+.superdesign/
 data/campaign-archive.json
 data/ad-stop-access.json
 npm-debug.log*
@@ -8,3 +9,5 @@ yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 UPDATES_SINCE_STOP_CAMPAIGNS_BELOW_10.md
+newUI.png
+UI_UPDATES_SINCE_LAST_PUSH.md

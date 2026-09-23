@@ -10,19 +10,19 @@ type HierarchyBadgeProps = {
 };
 
 const badgeStyles = {
-  ad: "border-[#10b981]/15 bg-[rgba(16,185,129,0.1)] text-[#047857]",
-  adSet: "border-[#7c3aed]/15 bg-[rgba(124,58,237,0.1)] text-[#6d28d9]",
-  campaign: "border-accent/15 bg-[rgba(0,113,227,0.1)] text-accent",
+  ad: "border-[#31a24c]/20 bg-[#e9f7ed] text-[#237b36]",
+  adSet: "border-[#1877f2]/20 bg-[#e7f3ff] text-[#166fe5]",
+  campaign: "border-accent/20 bg-[#e7f3ff] text-accent",
 } as const;
 
 const dotStyles = {
-  ad: "bg-[#10b981]",
-  adSet: "bg-[#7c3aed]",
+  ad: "bg-success",
+  adSet: "bg-[#1877f2]",
   campaign: "bg-accent",
 } as const;
 
-const mutedBadgeStyle = "border-[#8e8e93]/18 bg-[#8e8e93]/10 text-[#6e6e73]";
-const mutedDotStyle = "bg-[#8e8e93]";
+const mutedBadgeStyle = "border-line bg-[var(--bg-soft)] text-muted";
+const mutedDotStyle = "bg-muted";
 
 export function HierarchyBadge({
   children,
@@ -35,7 +35,7 @@ export function HierarchyBadge({
   return (
     <span
       className={cn(
-        "inline-flex w-fit items-center gap-2 rounded-full border px-3 py-1 text-[11px] font-semibold uppercase ",
+        "inline-flex w-fit items-center gap-2 rounded border px-3 py-1 text-[11px] font-semibold",
         isMuted ? mutedBadgeStyle : badgeStyles[variant],
         className
       )}

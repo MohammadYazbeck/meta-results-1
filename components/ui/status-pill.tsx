@@ -13,7 +13,7 @@ export function StatusPill({ className, source }: StatusPillProps) {
   return (
     <span
       className={cn(
-        "inline-flex w-fit items-center gap-2 rounded-full border border-black/[0.05] bg-white/80 px-4 py-2 text-[13px] font-medium text-[#3a3a3c] shadow-[inset_0_1px_0_rgba(255,255,255,0.85)]",
+        "inline-flex w-fit items-center gap-2 rounded-full bg-white/75 px-3 py-2 text-[12px] font-semibold text-muted shadow-sm ring-1 ring-black/[0.035]",
         className,
       )}
     >
@@ -21,10 +21,10 @@ export function StatusPill({ className, source }: StatusPillProps) {
         className={cn(
           "h-2 w-2 rounded-full",
           isLive
-            ? "bg-success shadow-[0_0_0_4px_rgba(29,156,88,0.12)]"
+            ? "bg-success"
             : isUnavailable
-              ? "bg-[#b42318] shadow-[0_0_0_4px_rgba(180,35,24,0.12)]"
-              : "bg-accent shadow-[0_0_0_4px_rgba(0,113,227,0.1)]",
+              ? "bg-danger"
+              : "bg-accent",
         )}
       />
       {isLive

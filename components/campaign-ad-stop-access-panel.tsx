@@ -31,8 +31,8 @@ function AccessStatusPill({ access }: { access: CampaignAdStopAccessRecord }) {
       className={cn(
         "inline-flex min-h-[30px] w-fit items-center rounded-full border px-3 text-[12px] font-semibold",
         isReady
-          ? "border-[#10b981]/15 bg-[#ecfdf5] text-[#047857]"
-          : "border-[#8e8e93]/16 bg-white/72 text-[#6e6e73]",
+          ? "border-[#31a24c]/20 bg-[#e9f7ed] text-[#237b36]"
+          : "bg-[#f0f2f5] text-muted",
       )}
     >
       {isReady ? "مفعّل للعميل" : "غير مفعّل"}
@@ -48,7 +48,7 @@ function SettingRow({
   value: string;
 }) {
   return (
-    <div className="rounded-[20px] border border-black/[0.05] bg-white/72 px-4 py-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.85)]">
+    <div className="rounded-2xl bg-[#f5f7fa] px-4 py-3 ring-1 ring-black/[0.035]">
       <span className="block text-[11px] font-semibold uppercase text-muted">
         {label}
       </span>
@@ -86,11 +86,11 @@ export function CampaignAdStopAccessPanel({
 
         <form
           action={saveAdStopAccessAction}
-          className="grid gap-4 rounded-[26px] border border-black/[0.05] bg-white/72 p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.88)]"
+          className="grid gap-4 rounded-[18px] bg-surface p-4 shadow-sm ring-1 ring-black/[0.035]"
         >
           <input name="campaignId" type="hidden" value={campaignId} />
 
-          <label className="flex items-center justify-between gap-4 rounded-[22px] border border-black/[0.05] bg-[var(--bg-soft)] px-4 py-3 text-sm font-medium text-ink">
+          <label className="flex items-center justify-between gap-4 rounded-2xl bg-[#f5f7fa] px-4 py-3 text-sm font-medium text-ink">
             <span className="grid gap-1">
               <span>تفعيل زر الإيقاف للعميل</span>
               <span className="text-xs font-normal leading-6 text-muted">
@@ -104,7 +104,7 @@ export function CampaignAdStopAccessPanel({
                 name="enabled"
                 type="checkbox"
               />
-              <span className="h-5 w-5 rounded-full bg-white shadow-sm transition peer-checked:translate-x-5 peer-checked:bg-[#10b981]" />
+              <span className="h-5 w-5 rounded-full bg-white shadow-sm transition peer-checked:translate-x-5 peer-checked:bg-success" />
             </span>
           </label>
 
@@ -139,12 +139,12 @@ export function CampaignAdStopAccessPanel({
           </button>
         </form>
 
-        <div className="rounded-[26px] border border-black/[0.05] bg-white/62 p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.85)]">
+        <div className="rounded-[18px] bg-[#f5f7fa] p-4 ring-1 ring-black/[0.035]">
           <div className="mb-3 flex items-center justify-between gap-3">
             <span className="text-[11px] font-semibold uppercase text-muted">
               آخر عمليات الإيقاف
             </span>
-            <span className="rounded-full bg-white/80 px-2.5 py-1 text-xs font-medium text-muted">
+            <span className="rounded bg-surface px-2.5 py-1 text-xs font-medium text-muted">
               {access.audit.length}
             </span>
           </div>
@@ -152,7 +152,7 @@ export function CampaignAdStopAccessPanel({
           <div className="grid gap-2">
             {access.audit.slice(0, 5).map((entry) => (
               <div
-                className="grid gap-1 rounded-[18px] border border-black/[0.05] bg-white/82 px-3.5 py-3"
+                className="grid gap-1 rounded-2xl bg-surface px-3.5 py-3 shadow-sm ring-1 ring-black/[0.035]"
                 key={entry.id}
               >
                 <strong className="break-words text-sm font-medium text-ink">
@@ -165,7 +165,7 @@ export function CampaignAdStopAccessPanel({
             ))}
 
             {!access.audit.length ? (
-              <p className="rounded-[18px] border border-dashed border-black/[0.08] bg-white/45 px-4 py-5 text-center text-sm leading-7 text-muted">
+              <p className="rounded-lg border border-dashed border-line bg-surface px-4 py-5 text-center text-sm leading-7 text-muted">
                 لا توجد عمليات إيقاف مسجلة لهذه الحملة حتى الآن.
               </p>
             ) : null}

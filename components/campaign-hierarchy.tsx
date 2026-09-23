@@ -2,7 +2,6 @@
 
 import { useState, type FormEvent } from "react";
 
-import { HierarchyBadge } from "@/components/ui/hierarchy-badge";
 import { getAdPerformanceRating } from "@/lib/ad-recommendations";
 import { formatDisplayCurrency } from "@/lib/currency";
 import { type CampaignDetailData } from "@/lib/meta";
@@ -47,18 +46,49 @@ function formatPublishedDate(value?: string) {
   }).format(date);
 }
 
-function AdMetric({ label, value }: { label: string; value: string }) {
+type AdMetricIconName =
+  | "followers"
+  | "impressions"
+  | "likes"
+  | "messages"
+  | "profile"
+  | "reach"
+  | "spend";
+
+function AdMetricIcon({ name }: { name: AdMetricIconName }) {
+  if (name === "messages") {
+    return <path d="M5 6.5h14v9H9l-4 3v-12Z" stroke="currentColor" strokeLinejoin="round" strokeWidth="1.8" />;
+  }
+  if (name === "profile" || name === "followers") {
+    return <><circle cx="12" cy="8" r="3" stroke="currentColor" strokeWidth="1.8" /><path d="M6 19c.5-4 2.5-6 6-6s5.5 2 6 6" stroke="currentColor" strokeLinecap="round" strokeWidth="1.8" /></>;
+  }
+  if (name === "likes") {
+    return <path d="M8 20H5V10h3m0 10h8.5a2 2 0 0 0 2-1.7l1-6A2 2 0 0 0 17.5 10H14l.5-3a3 3 0 0 0-3-3L8 10v10Z" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" />;
+  }
+  if (name === "reach") {
+    return <><path d="M5 15a8 8 0 0 1 14 0M8 17.5a5 5 0 0 1 8 0" stroke="currentColor" strokeLinecap="round" strokeWidth="1.8" /><circle cx="12" cy="20" r="1" fill="currentColor" /></>;
+  }
+  if (name === "impressions") {
+    return <><path d="M3.5 12s3-5 8.5-5 8.5 5 8.5 5-3 5-8.5 5-8.5-5-8.5-5Z" stroke="currentColor" strokeWidth="1.8" /><circle cx="12" cy="12" r="2.5" stroke="currentColor" strokeWidth="1.8" /></>;
+  }
+  if (name === "spend") {
+    return <><path d="M7 8.5h10l1.5 10h-13L7 8.5Z" stroke="currentColor" strokeLinejoin="round" strokeWidth="1.8" /><path d="M9 8.5a3 3 0 0 1 6 0" stroke="currentColor" strokeWidth="1.8" /></>;
+  }
+  return <path d="m5 18 5-5 3 3 6-8" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" />;
+}
+
+function AdMetric({ icon, label, value, wide }: { icon: AdMetricIconName; label: string; value: string; wide?: boolean }) {
   return (
-    <div className="grid min-h-[78px] gap-1 rounded-[18px] border border-black/[0.05] bg-white/92 px-3 py-2.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.96)] sm:min-h-[88px] sm:px-3.5 sm:py-3">
-      <span className="text-[10px] font-semibold uppercase text-muted">
-        {label}
+    <div className={cn("flex min-h-[88px] items-center justify-between gap-3 rounded-[18px] bg-white/88 px-4 py-3 shadow-[0_5px_16px_rgba(15,23,42,0.04)] ring-1 ring-black/[0.04]", wide && "col-span-2")}>
+      <div className="min-w-0 text-right">
+        <span className="text-[11px] font-semibold leading-5 text-muted">{label}</span>
+        <strong className="mt-1 block font-display text-[1.15rem] font-bold leading-none text-ink tabular-nums" dir="ltr">{value}</strong>
+      </div>
+      <span className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#fff1e8] text-[#ff5a00]">
+        <svg aria-hidden="true" fill="none" height="22" viewBox="0 0 24 24" width="22">
+          <AdMetricIcon name={icon} />
+        </svg>
       </span>
-      <strong
-        className="self-end font-display text-[1rem] font-semibold leading-none text-ink tabular-nums sm:text-[1.18rem]"
-        dir="ltr"
-      >
-        {value}
-      </strong>
     </div>
   );
 }
@@ -103,8 +133,8 @@ function AdThumbnail({
       className={cn(
         "flex h-full w-full items-center justify-center text-[11px] font-semibold",
         isRunning
-          ? "bg-[linear-gradient(135deg,rgba(16,185,129,0.16),rgba(0,113,227,0.1))] text-[#047857]"
-          : "bg-[linear-gradient(135deg,rgba(142,142,147,0.14),rgba(246,248,251,0.9))] text-[#6e6e73]",
+          ? "bg-[#e9f7ed] text-[#237b36]"
+          : "bg-[var(--bg-soft)] text-muted",
       )}
     >
       Ad
@@ -112,7 +142,7 @@ function AdThumbnail({
   );
 
   const className =
-    "block aspect-[1.2] min-h-[118px] overflow-hidden rounded-[18px] border border-black/[0.06] bg-white/80 shadow-[inset_0_1px_0_rgba(255,255,255,0.92)] sm:aspect-[1.35] lg:min-h-0";
+    "block aspect-square min-h-0 overflow-hidden rounded-[20px] bg-surface shadow-sm ring-1 ring-black/[0.04] sm:min-h-[170px] lg:aspect-[1.12] lg:min-h-[210px]";
 
   if (!primaryLink) {
     return <div className={className}>{media}</div>;
@@ -179,11 +209,14 @@ function AdLink({ ad }: { ad: FlatAd }) {
 
   return (
     <a
-      className="inline-flex min-h-[34px] w-fit items-center rounded-full border border-black/[0.07] bg-white/82 px-3 text-[12px] font-medium text-ink shadow-[inset_0_1px_0_rgba(255,255,255,0.9)]"
+      className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-2xl bg-[linear-gradient(135deg,#ff5a00,#ff7418)] px-4 text-[13px] font-bold text-white shadow-[0_8px_18px_rgba(255,90,0,0.22)] transition hover:-translate-y-0.5 hover:shadow-[0_10px_24px_rgba(255,90,0,0.28)]"
       href={link.href}
       rel="noreferrer"
       target="_blank"
     >
+      <svg aria-hidden="true" fill="none" height="16" viewBox="0 0 24 24" width="16">
+        <path d="M14 5h5v5m0-5-8 8M19 14v3.5a1.5 1.5 0 0 1-1.5 1.5h-11A1.5 1.5 0 0 1 5 17.5v-11A1.5 1.5 0 0 1 6.5 5H10" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" />
+      </svg>
       {link.label}
     </a>
   );
@@ -282,7 +315,7 @@ function StopAdControl({
   return (
     <>
       <button
-        className="inline-flex min-h-[34px] w-fit items-center rounded-full border border-[#b42318]/15 bg-[#fff5f5] px-3.5 text-[12px] font-semibold text-[#b42318] shadow-[inset_0_1px_0_rgba(255,255,255,0.92)] transition hover:border-[#b42318]/25 hover:bg-white"
+        className="inline-flex min-h-[34px] w-fit items-center rounded-md border border-danger/20 bg-[#fff0f2] px-3.5 text-[12px] font-semibold text-danger transition-colors hover:border-danger/30 hover:bg-white"
         onClick={() => {
           setError(null);
           setIsOpen(true);
@@ -295,16 +328,16 @@ function StopAdControl({
       {isOpen ? (
         <div
           aria-modal="true"
-          className="fixed inset-0 z-50 flex items-end justify-center bg-black/28 px-3 py-4 backdrop-blur-sm sm:items-center"
+          className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 px-3 py-4 sm:items-center"
           role="dialog"
         >
           <form
-            className="w-full max-w-[420px] rounded-[28px] border border-white/70 bg-white/96 p-4 text-right shadow-[0_24px_80px_rgba(15,23,42,0.18),inset_0_1px_0_rgba(255,255,255,0.95)] sm:p-5"
+            className="w-full max-w-[420px] rounded-[20px] bg-surface p-4 text-right shadow-[0_24px_70px_rgba(15,23,42,0.22)] ring-1 ring-black/[0.06] sm:p-5"
             onSubmit={handleSubmit}
           >
             <div className="mb-4 flex items-start justify-between gap-4">
               <div className="min-w-0">
-                <p className="mb-2 text-[11px] font-semibold uppercase text-[#b42318]">
+                <p className="mb-2 text-[11px] font-semibold text-danger">
                   إجراء حساس
                 </p>
                 <h3 className="font-display text-xl leading-tight text-ink">
@@ -316,7 +349,7 @@ function StopAdControl({
               </div>
               <button
                 aria-label="إغلاق"
-                className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-black/[0.06] bg-white text-lg leading-none text-muted"
+                className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#f0f2f5] text-lg leading-none text-muted transition hover:bg-[#e7eaf0]"
                 disabled={isSubmitting}
                 onClick={closeDialog}
                 type="button"
@@ -325,7 +358,7 @@ function StopAdControl({
               </button>
             </div>
 
-            <div className="mb-4 rounded-[20px] border border-black/[0.05] bg-[var(--bg-soft)] px-4 py-3">
+            <div className="mb-4 rounded-2xl bg-[#f5f7fa] px-4 py-3">
               <span className="block text-[11px] font-semibold uppercase text-muted">
                 الإعلان
               </span>
@@ -343,7 +376,7 @@ function StopAdControl({
             <input
               autoComplete="off"
               autoFocus
-              className="mb-3 min-h-[48px] w-full rounded-[18px] border border-black/[0.06] bg-white px-4 text-sm text-ink outline-none shadow-[inset_0_1px_0_rgba(255,255,255,0.9)] focus:border-[#b42318]/20 focus:ring-2 focus:ring-[#b42318]/10"
+              className="mb-3 min-h-11 w-full rounded-xl border border-transparent bg-[#f2f4f7] px-4 text-sm text-ink outline-none transition focus:bg-white focus:ring-4 focus:ring-danger/10"
               id={`stop-passcode-${ad.id}`}
               maxLength={64}
               minLength={4}
@@ -355,21 +388,21 @@ function StopAdControl({
             />
 
             {error ? (
-              <p className="mb-3 rounded-[16px] border border-[#b42318]/10 bg-[#fff5f5] px-3 py-2 text-sm leading-6 text-[#b42318]">
+              <p className="mb-3 rounded-lg border border-danger/20 bg-[#fff0f2] px-3 py-2 text-sm leading-6 text-danger">
                 {error}
               </p>
             ) : null}
 
             <div className="grid gap-2 sm:grid-cols-2">
               <button
-                className="inline-flex min-h-[44px] items-center justify-center rounded-full bg-[#b42318] px-4 text-sm font-semibold text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.16)] disabled:cursor-not-allowed disabled:opacity-55"
+                className="inline-flex min-h-[44px] items-center justify-center rounded-xl bg-[#e41e3f] px-4 text-sm font-semibold text-[#ffffff] shadow-[0_8px_18px_rgba(228,30,63,0.2)] transition hover:-translate-y-0.5 hover:bg-[#c91937] disabled:cursor-not-allowed disabled:opacity-55"
                 disabled={isSubmitting}
                 type="submit"
               >
                 {isSubmitting ? "جاري الإيقاف..." : "تأكيد الإيقاف"}
               </button>
               <button
-                className="inline-flex min-h-[44px] items-center justify-center rounded-full border border-black/[0.06] bg-white px-4 text-sm font-medium text-ink"
+                className="inline-flex min-h-[44px] items-center justify-center rounded-xl bg-[#f0f2f5] px-4 text-sm font-semibold text-ink transition hover:bg-[#e7eaf0]"
                 disabled={isSubmitting}
                 onClick={closeDialog}
                 type="button"
@@ -455,60 +488,52 @@ export function CampaignHierarchy({
         return (
           <article
             className={cn(
-              "relative grid gap-3 rounded-[24px] border p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.92)]",
-              isRunning
-                ? "border-[#10b981]/12 bg-[linear-gradient(180deg,rgba(16,185,129,0.08),rgba(255,255,255,0.9)_34%)]"
-                : "border-[#8e8e93]/14 bg-[linear-gradient(180deg,rgba(142,142,147,0.09),rgba(255,255,255,0.9)_34%)]",
+              "relative grid gap-4 rounded-[24px] bg-white/92 p-4 shadow-[0_12px_34px_rgba(15,23,42,0.07)] ring-1 ring-black/[0.045] transition duration-200 hover:-translate-y-0.5 hover:shadow-[0_18px_40px_rgba(15,23,42,0.10)] sm:p-5",
             )}
             key={ad.id}
           >
-            <span
-              className={cn(
-                "absolute -right-[9px] top-7 h-4 w-4 rounded-full border-4 border-white",
-                isRunning ? "bg-[#10b981]/70" : "bg-[#8e8e93]/65",
-              )}
-            />
-
-            <div className="grid gap-3 lg:grid-cols-[minmax(116px,150px)_minmax(0,1fr)] lg:items-start">
-              <AdThumbnail
-                ad={displayAd}
-                adSetStatus={ad.adSetStatus}
-                campaignStatus={campaignStatus}
-              />
-
-              <div className="grid min-w-0 gap-2">
+            <div className="grid grid-cols-[minmax(0,1.15fr)_minmax(110px,0.8fr)] gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(220px,0.48fr)] lg:items-start lg:gap-6">
+              <div className="grid min-w-0 content-start gap-3">
                 <div className="flex flex-wrap gap-2">
-                  <HierarchyBadge tone={isRunning ? "default" : "muted"} variant="ad">
-                    Ad
-                  </HierarchyBadge>
-                  <span
-                    className={cn(
-                      "inline-flex w-fit items-center rounded-full border bg-white/75 px-3 py-1 text-[11px] font-medium",
-                      isRunning
-                        ? "border-[#10b981]/12 text-[#047857]"
-                        : "border-[#8e8e93]/16 text-[#6e6e73]",
-                    )}
-                  >
-                    {`الإعلان ${adIndex + 1}`}
-                  </span>
-                  <span className="inline-flex w-fit items-center rounded-full border border-black/[0.06] bg-white/72 px-3 py-1 text-[11px] font-medium text-muted">
+                  <span className="inline-flex w-fit items-center gap-1.5 rounded-full bg-[#f4f5f7] px-3 py-1.5 text-[11px] font-semibold text-muted ring-1 ring-black/[0.035]">
                     {`نشر ${formatPublishedDate(ad.createdAt)}`}
                   </span>
+                  <span className="inline-flex w-fit items-center rounded-full bg-[#f4f5f7] px-3 py-1.5 text-[11px] font-semibold text-muted ring-1 ring-black/[0.035]">
+                    {`الإعلان ${adIndex + 1}`}
+                  </span>
+                  <span
+                    className={cn(
+                      "inline-flex w-fit items-center gap-1.5 rounded-full px-3 py-1.5 text-[11px] font-semibold",
+                      isRunning
+                        ? "bg-[#e9f7ed] text-[#237b36]"
+                        : "bg-[#f0f2f5] text-muted",
+                    )}
+                  >
+                    <span
+                      className={cn(
+                        "h-2 w-2 rounded-full",
+                        isRunning
+                          ? "bg-[#31a24c] shadow-[0_0_0_3px_rgba(49,162,76,0.14)]"
+                          : "bg-[#8a8d91]",
+                      )}
+                    />
+                    {isRunning ? "نشط" : "متوقف"}
+                  </span>
                 </div>
-                <div className="flex flex-wrap items-center gap-2">
-                  <strong className="break-words text-[15px] font-medium text-ink">
+                <div className="grid gap-2">
+                  <strong className="break-words font-display text-[clamp(1.15rem,4vw,1.55rem)] font-black leading-tight text-ink">
                     {ad.name}
                   </strong>
                   <span
                     className={cn(
-                      "inline-flex max-w-full rounded-full border px-3 py-1 text-[12px] font-medium leading-5",
+                      "inline-flex w-fit max-w-full rounded-full px-3 py-1.5 text-[12px] font-bold leading-5",
                       performanceRating.tone === "excellent"
-                        ? "border-[#047857]/25 bg-[#e7f8ef] text-[#036b4f]"
+                        ? "bg-[#e7f8ef] text-[#036b4f]"
                         : performanceRating.tone === "good"
-                        ? "border-[#10b981]/20 bg-[#f0fbf5] text-[#047857]"
+                        ? "bg-[#f0fbf5] text-[#047857]"
                         : performanceRating.tone === "under"
-                          ? "border-[#c2410c]/20 bg-[#fff4ed] text-[#a33a0b]"
-                          : "border-[#8e8e93]/20 bg-[#f4f4f5] text-[#6e6e73]",
+                          ? "bg-[#fff0e7] text-[#e95712]"
+                          : "bg-[#f4f4f5] text-[#6e6e73]",
                     )}
                   >
                     {`التقييم: ${performanceRating.label}`}
@@ -524,25 +549,32 @@ export function CampaignHierarchy({
                     />
                   ) : null}
                   {stoppedAdIds.has(ad.id) ? (
-                    <span className="inline-flex min-h-[34px] w-fit items-center rounded-full border border-[#8e8e93]/16 bg-white/75 px-3 text-[12px] font-medium text-[#6e6e73]">
+                    <span className="inline-flex min-h-[34px] w-fit items-center rounded-xl bg-white/80 px-3 text-[12px] font-medium text-muted ring-1 ring-black/[0.035]">
                       تم إرسال أمر الإيقاف
                     </span>
                   ) : null}
                 </div>
               </div>
+
+              <AdThumbnail
+                ad={displayAd}
+                adSetStatus={ad.adSetStatus}
+                campaignStatus={campaignStatus}
+              />
             </div>
 
-            <div className="grid grid-cols-2 gap-2 min-[560px]:grid-cols-3 xl:grid-cols-6">
-              <AdMetric label="المصروف" value={formatDisplayCurrency(ad.spend)} />
-              <AdMetric label="إجمالي المحادثات من الإعلان" value={formatInteger(ad.messages)} />
-              <AdMetric label="متابعات إنستغرام من الإعلان" value={formatInteger(ad.followers)} />
-              <AdMetric label="زيارات الملف الشخصي" value={formatInteger(ad.profileVisits)} />
+            <div className="grid grid-cols-2 gap-2.5 lg:grid-cols-4">
+              <AdMetric icon="spend" label="المصروف" value={formatDisplayCurrency(ad.spend)} />
+              <AdMetric icon="messages" label="إجمالي المحادثات من الإعلان" value={formatInteger(ad.messages)} />
+              <AdMetric icon="followers" label="متابعات إنستغرام من الإعلان" value={formatInteger(ad.followers)} />
+              <AdMetric icon="profile" label="زيارات الملف الشخصي" value={formatInteger(ad.profileVisits)} />
               <AdMetric
+                icon="likes"
                 label="إعجابات صفحة فيسبوك"
                 value={formatInteger(ad.facebookPageLikes)}
               />
-              <AdMetric label="الوصول" value={formatInteger(ad.reach)} />
-              <AdMetric label="الانطباعات" value={formatInteger(ad.impressions)} />
+              <AdMetric icon="reach" label="الوصول" value={formatInteger(ad.reach)} />
+              <AdMetric icon="impressions" label="الانطباعات" value={formatInteger(ad.impressions)} wide />
             </div>
           </article>
         );

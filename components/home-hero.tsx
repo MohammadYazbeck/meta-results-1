@@ -16,20 +16,31 @@ type HomeHeroProps = {
 
 function MetaItem({ label, value }: { label: string; value: string }) {
   return (
-    <div className="grid gap-1 rounded-[24px] border border-black/[0.06] bg-white/75 px-4 py-3.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.9)]">
-      <span className="text-[11px] font-semibold uppercase  text-muted">
-        {label}
-      </span>
-      <strong className="break-all font-display text-[15px] font-medium  text-ink">
+    <div className="grid min-w-0 gap-1 rounded-2xl bg-white/75 px-4 py-3.5 shadow-[0_1px_2px_rgba(15,23,42,0.03)] ring-1 ring-black/[0.035]">
+      <span className="text-[12px] text-muted">{label}</span>
+      <strong className="break-all font-display text-[14px] font-semibold text-ink">
         {value}
       </strong>
     </div>
   );
 }
 
-function FeatureChip({ label }: { label: string }) {
+function FeatureChip({ accent = false, label }: { accent?: boolean; label: string }) {
   return (
-    <span className="inline-flex w-fit items-center rounded-full border border-black/[0.05] bg-white/70 px-3 py-1.5 text-xs font-medium text-[#3a3a3c] shadow-[inset_0_1px_0_rgba(255,255,255,0.85)]">
+    <span
+      className={cn(
+        "inline-flex w-fit items-center gap-2 rounded-full px-3 py-1.5 text-[12px] font-semibold",
+        accent
+          ? "bg-[#fff1df] text-[#a6530a]"
+          : "bg-white/75 text-muted ring-1 ring-black/[0.04]",
+      )}
+    >
+      <span
+        className={cn(
+          "h-1.5 w-1.5 rounded-full",
+          accent ? "bg-[#f28c28]" : "bg-[#0866ff]/55",
+        )}
+      />
       {label}
     </span>
   );
@@ -40,46 +51,46 @@ export function HomeHero({ accountId, rangeLabel, source }: HomeHeroProps) {
     <section
       className={cn(
         panelClassName,
-        "relative mb-8 grid gap-8 px-5 py-6 sm:px-6 sm:py-7 xl:grid-cols-[minmax(0,1.55fr)_minmax(320px,0.8fr)]"
+        "relative mb-6 bg-[radial-gradient(circle_at_6%_12%,rgba(242,140,40,0.16),transparent_22rem),radial-gradient(circle_at_88%_92%,rgba(8,102,255,0.12),transparent_24rem),#ffffff] p-5 sm:p-7"
       )}
     >
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(0,113,227,0.11),transparent_26%),radial-gradient(circle_at_bottom_left,rgba(255,255,255,0.9),transparent_28%),linear-gradient(180deg,rgba(255,255,255,0.24),transparent)]" />
-      <div className="pointer-events-none absolute left-[8%] top-8 h-24 w-24 rounded-full bg-[radial-gradient(circle,_rgba(255,255,255,0.95),_transparent_70%)] blur-2xl" />
-      <div className="pointer-events-none absolute bottom-0 left-[12%] right-[12%] h-px bg-gradient-to-l from-transparent via-white/80 to-transparent" />
+      <div aria-hidden="true" className="pointer-events-none absolute left-[-2.5rem] top-[-2.5rem] h-32 w-32 rounded-full bg-[#f28c28]/10 blur-3xl" />
+      <div aria-hidden="true" className="pointer-events-none absolute bottom-[-4rem] right-[12%] h-44 w-44 rounded-full bg-[#0866ff]/10 blur-3xl" />
 
-      <div className="relative z-[1]">
-        <p className={eyebrowClassName}>لوحة تقارير ميتا</p>
-        <h1 className="max-w-[11ch] font-display text-[clamp(2.25rem,5vw,5rem)] leading-[0.92]  text-ink max-sm:max-w-none">
-          صورة أوضح لأداء حملاتك.
-        </h1>
+      <div className="relative flex flex-col gap-7 xl:flex-row xl:items-start xl:justify-between">
+        <div className="max-w-2xl">
+          <p className={cn(eyebrowClassName, "rounded-full bg-[#fff1df] px-3 py-1.5")}>لوحة تقارير ميتا</p>
+          <h1 className="mt-2 max-w-[18ch] font-display text-[clamp(2rem,4vw,3rem)] font-bold leading-[1.08] text-ink">
+            صورة أوضح لأداء حملاتك.
+          </h1>
 
-        <p className="mt-5 max-w-[60ch] text-[1rem] leading-8 text-[#333336] sm:text-[1.06rem]">
-          بيانات مباشرة من{" "}
-          <span className="font-medium text-ink">Meta Marketing API</span> داخل
-          واجهة عربية هادئة، مصممة لقراءة أسرع وفهم أسرع للنتائج.
-        </p>
+          <p className="mt-2 max-w-[60ch] text-[15px] leading-7 text-muted">
+            بيانات مباشرة من{" "}
+            <span className="font-medium text-ink">Meta Marketing API</span> داخل
+            واجهة عربية هادئة، مصممة لقراءة أسرع وفهم أسرع للنتائج.
+          </p>
 
-        <div className="mt-6 flex flex-wrap gap-2.5">
-          <FeatureChip label="إحصاءات ميتا" />
-          <FeatureChip label="أداء الحملات" />
-          <FeatureChip label="تقارير مباشرة" />
-        </div>
-      </div>
-
-      <div className="relative z-[1] grid content-start gap-3.5">
-        <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap xl:justify-end">
-          <StatusPill source={source} />
-          <form action={adminLogoutAction}>
-            <button className={secondaryButtonClassName} type="submit">
-              تسجيل الخروج
-            </button>
-          </form>
+          <div className="mt-5 flex flex-wrap gap-2">
+            <FeatureChip label="إحصاءات ميتا" />
+            <FeatureChip label="أداء الحملات" />
+            <FeatureChip accent label="تقارير مباشرة" />
+          </div>
         </div>
 
-        <div className="grid gap-3">
-          <MetaItem label="حساب الإعلانات" value={accountId} />
-          <MetaItem label="الفترة" value={rangeLabel} />
-          <MetaItem label="المسار البرمجي" value="/api/meta/insights" />
+        <div className="grid min-w-0 gap-4 xl:min-w-[360px]">
+          <div className="flex flex-wrap items-center justify-between gap-3 xl:justify-end">
+            <StatusPill source={source} />
+            <form action={adminLogoutAction}>
+              <button className={secondaryButtonClassName} type="submit">
+                تسجيل الخروج
+              </button>
+            </form>
+          </div>
+
+          <div className="grid grid-cols-1 gap-3 min-[420px]:grid-cols-2">
+            <MetaItem label="حساب الإعلانات" value={accountId} />
+            <MetaItem label="الفترة" value={rangeLabel} />
+          </div>
         </div>
       </div>
     </section>

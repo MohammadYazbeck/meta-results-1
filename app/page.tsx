@@ -155,7 +155,7 @@ export default async function HomePage({ searchParams }: PageProps) {
     "بيانات ميتا المباشرة غير متاحة حالياً. تحقق من بيانات الاعتماد وحاول مرة أخرى.";
 
   return (
-    <main className="mx-auto w-full max-w-shell px-3 py-4 sm:px-4 sm:py-6 lg:px-7 lg:py-8">
+    <main className="mx-auto w-full max-w-shell px-4 py-6 md:py-8">
       <PageScene variant="home">
         <HomeHero
           accountId={data.accountId}
@@ -163,7 +163,7 @@ export default async function HomePage({ searchParams }: PageProps) {
           source={data.source}
         />
 
-        <div className="mb-8">
+        <div className="mb-6">
           <DateRangeForm range={data.range} />
         </div>
 

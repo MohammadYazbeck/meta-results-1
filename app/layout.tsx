@@ -10,6 +10,7 @@ const tailwindConfig = `
       extend: {
         colors: {
           accent: 'var(--accent)',
+          danger: 'var(--danger)',
           ink: 'var(--text)',
           line: 'var(--line)',
           muted: 'var(--muted)',
@@ -51,11 +52,6 @@ export default function RootLayout({ children }: { children: ReactNode }) {
         />
       </head>
       <body className="min-h-screen overflow-x-hidden bg-transparent text-ink antialiased">
-        <div aria-hidden="true" className="pointer-events-none fixed inset-0 -z-10 overflow-hidden">
-          <div className="absolute right-[-6rem] top-[-4rem] h-72 w-72 rounded-full bg-[radial-gradient(circle,_rgba(0,113,227,0.15),_transparent_68%)] blur-3xl sm:h-96 sm:w-96" />
-          <div className="absolute bottom-[-8rem] left-[-5rem] h-72 w-72 rounded-full bg-[radial-gradient(circle,_rgba(255,255,255,0.9),_transparent_72%)] blur-3xl sm:h-[26rem] sm:w-[26rem]" />
-          <div className="absolute inset-x-0 top-0 h-56 bg-[linear-gradient(180deg,rgba(255,255,255,0.7),transparent)]" />
-        </div>
         {children}
       </body>
     </html>

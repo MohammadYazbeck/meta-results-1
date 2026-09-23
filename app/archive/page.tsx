@@ -83,11 +83,16 @@ export default async function ArchivePage({ searchParams }: PageProps) {
     "بيانات ميتا المباشرة غير متاحة حالياً. تحقق من بيانات الاعتماد وحاول مرة أخرى.";
 
   return (
-    <main className="mx-auto w-full max-w-shell px-3 py-4 sm:px-4 sm:py-6 lg:px-7 lg:py-8">
+    <main className="mx-auto w-full max-w-shell px-4 py-6 md:py-8">
       <PageScene variant="home">
-        <section className={cn(panelClassName, "mb-6 p-5 sm:p-6")}>
+        <section
+          className={cn(
+            panelClassName,
+            "mb-6 bg-[radial-gradient(circle_at_8%_10%,rgba(242,140,40,0.13),transparent_18rem),radial-gradient(circle_at_90%_90%,rgba(8,102,255,0.09),transparent_22rem),#ffffff] p-5 sm:p-6",
+          )}
+        >
           <p className={eyebrowClassName}>الأرشيف</p>
-          <h1 className="font-display text-[clamp(2rem,6vw,3.8rem)] leading-none text-ink">
+          <h1 className="font-display text-[clamp(1.75rem,5vw,2.5rem)] font-bold leading-tight text-ink">
             الحملات المؤرشفة
           </h1>
           <p className={mutedTextClassName}>

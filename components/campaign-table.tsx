@@ -34,16 +34,16 @@ type CampaignTableProps = {
 };
 
 const listingPanelClassName =
-  "overflow-hidden rounded-[30px] border border-white/70 bg-[var(--card)] shadow-panel backdrop-blur-2xl";
+  "overflow-hidden rounded-[20px] bg-surface shadow-[0_1px_2px_rgba(15,23,42,0.04),0_12px_32px_rgba(15,23,42,0.07)] ring-1 ring-black/[0.04]";
 
 const quietButtonClassName =
-  "inline-flex min-h-11 items-center justify-center rounded-full border border-black/[0.08] bg-white/82 px-4 py-2.5 text-sm font-medium text-ink shadow-[inset_0_1px_0_rgba(255,255,255,0.85)] focus:outline-none focus:ring-2 focus:ring-accent/15";
+  "inline-flex min-h-11 items-center justify-center rounded-xl bg-[#f0f2f5] px-4 py-2 text-sm font-semibold text-ink transition duration-200 hover:-translate-y-0.5 hover:bg-[#fff1df] focus:outline-none focus:ring-2 focus:ring-[#f28c28]/20";
 
 const archiveButtonClassName =
-  "inline-flex min-h-8 items-center justify-center gap-1.5 rounded-full border border-[#111113]/10 bg-[#111113] px-3.5 py-1.5 text-[12px] font-semibold text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.14),0_8px_18px_rgba(17,17,19,0.12)] focus:outline-none focus:ring-2 focus:ring-accent/20";
+  "inline-flex min-h-8 items-center justify-center gap-1.5 rounded-xl bg-[#0866ff] px-3.5 py-1.5 text-[12px] font-semibold text-[#ffffff] shadow-[0_6px_14px_rgba(8,102,255,0.18)] transition duration-200 hover:-translate-y-0.5 hover:bg-[#1877f2] focus:outline-none focus:ring-2 focus:ring-[#0866ff]/20";
 
 const searchInputClassName =
-  "min-h-[54px] rounded-[20px] border border-black/[0.06] bg-white/82 py-3 pl-4 pr-11 text-base text-ink outline-none shadow-[inset_0_1px_0_rgba(255,255,255,0.9)] placeholder:text-muted/70 focus:border-accent/20 focus:bg-white focus:ring-2 focus:ring-accent/10";
+  "min-h-12 w-full rounded-2xl border border-transparent bg-[#f2f4f7] py-2 pl-4 pr-11 text-sm text-ink outline-none transition duration-200 placeholder:text-muted/65 hover:bg-[#edf0f4] focus:border-[#0866ff]/20 focus:bg-white focus:ring-4 focus:ring-[#0866ff]/10";
 
 function getRemaining(totalPaid: number, totalSpend: number) {
   return Math.round((totalPaid - totalSpend) * 100) / 100;
@@ -178,14 +178,14 @@ function MobileMetric({
   value: string | number;
 }) {
   return (
-    <div className="rounded-[20px] border border-black/[0.05] bg-white/80 px-3.5 py-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.9)]">
-      <span className="text-[11px] font-semibold uppercase text-muted">
+    <div className="rounded-xl bg-white/75 px-3.5 py-3 ring-1 ring-black/[0.035]">
+      <span className="text-[11px] font-medium text-muted">
         {label}
       </span>
       <strong
         className={cn(
           "mt-1 block font-display text-[15px] font-medium",
-          danger ? "text-[#b42318]" : "text-ink",
+          danger ? "text-danger" : "text-ink",
         )}
       >
         {value}
@@ -255,10 +255,13 @@ export function CampaignTable({
       : emptyMessage;
   const negativeFilterControl =
     mode === "active" ? (
-      <label className="inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-full border border-black/[0.06] bg-white/78 px-4 py-2 text-sm font-medium text-ink shadow-[inset_0_1px_0_rgba(255,255,255,0.88)]">
+      <label className={cn(
+        "inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-xl bg-[#f0f2f5] px-3.5 py-2 text-sm font-semibold text-ink transition-colors hover:bg-[#e9edf2]",
+        negativeRemainingOnly && "bg-[#fff0f2] text-danger ring-1 ring-danger/10",
+      )}>
         <input
           checked={negativeRemainingOnly}
-          className="h-4 w-4 accent-[#b42318]"
+          className="h-4 w-4 accent-danger"
           onChange={(event) => setNegativeRemainingOnly(event.target.checked)}
           type="checkbox"
         />
@@ -416,7 +419,10 @@ export function CampaignTable({
                 <SearchIcon />
                 <input
                   aria-label="البحث باسم الحملة"
-                  className={searchInputClassName}
+                  className={cn(
+                    searchInputClassName,
+                    query && "border-transparent bg-[#fff8ef] ring-1 ring-[#f28c28]/30",
+                  )}
                   onChange={(event) => setQuery(event.target.value)}
                   placeholder="اكتب اسم الحملة..."
                   type="search"
@@ -429,7 +435,7 @@ export function CampaignTable({
               {negativeFilterControl}
               {isAdmin && mode === "active" && liveCampaigns.length ? (
                 <button
-                  className={cn(quietButtonClassName, "border-[#b42318]/20 text-[#b42318]")}
+                  className={cn(quietButtonClassName, "border-danger/20 text-danger hover:bg-[#fff0f2]")}
                   disabled={isArchivingAll}
                   onClick={handleArchiveAll}
                   type="button"
@@ -463,7 +469,7 @@ export function CampaignTable({
         </div>
 
         {archiveError ? (
-          <p className="mt-3 rounded-[18px] border border-[#b42318]/10 bg-[#fff4f2] px-4 py-3 text-sm font-medium text-[#b42318]">
+          <p className="mt-3 rounded-lg border border-danger/20 bg-[#fff0f2] px-4 py-3 text-sm font-medium text-danger">
             {archiveError}
           </p>
         ) : null}
@@ -491,7 +497,7 @@ export function CampaignTable({
           return (
             <article
               className={cn(
-                "grid cursor-pointer gap-3 rounded-[26px] border border-black/[0.05] bg-white/72 p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.9)] transition-opacity duration-150",
+                "grid cursor-pointer gap-3 rounded-2xl bg-[#f7f9fc] p-4 ring-1 ring-black/[0.035] transition duration-200 hover:-translate-y-1 hover:bg-[#fff8ef] hover:shadow-[0_12px_26px_rgba(28,30,33,0.09)]",
                 isRemoving && "pointer-events-none opacity-0",
               )}
               key={campaign.campaignId}
@@ -544,16 +550,16 @@ export function CampaignTable({
         })}
 
         {!visibleCampaigns.length ? (
-          <div className="rounded-[26px] border border-dashed border-black/[0.08] bg-white/45 p-6 text-center text-sm text-muted">
+          <div className="rounded-lg border border-dashed border-line bg-[var(--bg-soft)] p-6 text-center text-sm text-muted">
             {resolvedEmptyMessage}
           </div>
         ) : null}
       </div>
 
       <div className="hidden overflow-x-auto px-3 pb-3 md:block">
-        <table className="min-w-full border-separate border-spacing-y-3 text-right">
+        <table className="min-w-full border-separate border-spacing-y-2 text-right">
           <thead>
-            <tr className="text-[12px] font-semibold uppercase text-muted">
+            <tr className="text-[11px] font-bold text-muted">
               <th className="px-5 py-2">الحملة</th>
               <th className="px-4 py-2">إجمالي المدفوع</th>
               <th className="px-4 py-2">المتبقي</th>
@@ -574,7 +580,7 @@ export function CampaignTable({
               return (
                 <tr
                   className={cn(
-                    "cursor-pointer transition-opacity duration-150",
+                    "group cursor-pointer transition duration-200 hover:-translate-y-0.5 hover:shadow-[0_8px_20px_rgba(15,23,42,0.07)]",
                     isRemoving && "pointer-events-none opacity-0",
                   )}
                   key={campaign.campaignId}
@@ -583,33 +589,33 @@ export function CampaignTable({
                   role="link"
                   tabIndex={0}
                 >
-                  <td className="rounded-r-[26px] border-y border-r border-black/[0.05] bg-white/72 px-5 py-4 align-top shadow-[inset_0_1px_0_rgba(255,255,255,0.9)]">
+                  <td className="rounded-r-2xl bg-[#f7f9fc] px-5 py-4 align-top transition-colors group-hover:bg-[#fff8ef]">
                     <CampaignLinkCell campaign={campaign} />
                   </td>
-                  <td className="border-y border-black/[0.05] bg-white/72 px-4 py-4 font-display text-[15px] font-medium text-ink shadow-[inset_0_1px_0_rgba(255,255,255,0.9)]">
+                  <td className="bg-[#f7f9fc] px-4 py-4 font-display text-[15px] font-medium text-ink transition-colors group-hover:bg-[#fff8ef]">
                     {formatDisplayCurrency(totalPaid)}
                   </td>
                   <td
                     className={cn(
-                      "border-y border-black/[0.05] bg-white/72 px-4 py-4 font-display text-[15px] font-medium shadow-[inset_0_1px_0_rgba(255,255,255,0.9)]",
-                      remaining < 0 ? "text-[#b42318]" : "text-ink",
+                      "bg-[#f7f9fc] px-4 py-4 font-display text-[15px] font-medium transition-colors group-hover:bg-[#fff8ef]",
+                      remaining < 0 ? "text-danger" : "text-ink",
                     )}
                   >
                     {formatDisplayCurrency(remaining)}
                   </td>
-                  <td className="border-y border-black/[0.05] bg-white/72 px-4 py-4 font-display text-[15px] font-medium text-ink shadow-[inset_0_1px_0_rgba(255,255,255,0.9)]">
+                  <td className="bg-[#f7f9fc] px-4 py-4 font-display text-[15px] font-medium text-ink transition-colors group-hover:bg-[#fff8ef]">
                     {formatDisplayCurrency(campaign.spendInRange)}
                   </td>
-                  <td className="border-y border-black/[0.05] bg-white/72 px-4 py-4 font-display text-[15px] font-medium text-ink shadow-[inset_0_1px_0_rgba(255,255,255,0.9)]">
+                  <td className="bg-[#f7f9fc] px-4 py-4 font-display text-[15px] font-medium text-ink transition-colors group-hover:bg-[#fff8ef]">
                     {formatDisplayCurrency(campaign.totalSpend)}
                   </td>
-                  <td className="border-y border-black/[0.05] bg-white/72 px-4 py-4 font-display text-[15px] font-medium text-ink shadow-[inset_0_1px_0_rgba(255,255,255,0.9)]">
+                  <td className="bg-[#f7f9fc] px-4 py-4 font-display text-[15px] font-medium text-ink transition-colors group-hover:bg-[#fff8ef]">
                     {formatDisplayCurrency(campaign.averageDailySpend)}
                   </td>
-                  <td className="border-y border-black/[0.05] bg-white/72 px-4 py-4 text-sm font-medium text-ink shadow-[inset_0_1px_0_rgba(255,255,255,0.9)]">
+                  <td className="bg-[#f7f9fc] px-4 py-4 text-sm font-medium text-ink transition-colors group-hover:bg-[#fff8ef]">
                     {campaign.activeDays}
                   </td>
-                  <td className="rounded-l-[26px] border-y border-l border-black/[0.05] bg-white/72 px-5 py-4 text-left shadow-[inset_0_1px_0_rgba(255,255,255,0.9)]">
+                  <td className="rounded-l-2xl bg-[#f7f9fc] px-5 py-4 text-left transition-colors group-hover:bg-[#fff8ef]">
                     <div className="flex justify-end">
                       <CampaignArchiveButton
                         campaign={campaign}

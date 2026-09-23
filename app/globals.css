@@ -1,22 +1,27 @@
 :root {
-  --bg: #f5f5f7;
-  --bg-soft: rgba(255, 255, 255, 0.78);
-  --card: rgba(255, 255, 255, 0.72);
-  --card-strong: #111214;
-  --line: rgba(17, 17, 19, 0.08);
-  --line-strong: rgba(17, 17, 19, 0.14);
-  --text: #111113;
-  --muted: #6e6e73;
-  --accent: #0071e3;
-  --accent-soft: rgba(0, 113, 227, 0.1);
-  --success: #1d9c58;
+  --bg: #f3f6fa;
+  --bg-soft: #f5f7fa;
+  --card: #ffffff;
+  --card-strong: #0866ff;
+  --line: rgba(28, 30, 33, 0.08);
+  --line-strong: rgba(28, 30, 33, 0.14);
+  --text: #1c1e21;
+  --muted: #65676b;
+  --accent: #0866ff;
+  --accent-hover: #1877f2;
+  --accent-soft: #e7f3ff;
+  --success: #31a24c;
+  --danger: #e41e3f;
+  --warm: #f28c28;
+  --warm-soft: #fff8ef;
+  --warm-line: #f4b56a;
   --shadow:
-    0 24px 60px rgba(15, 23, 42, 0.06),
-    0 6px 18px rgba(15, 23, 42, 0.04);
-  --font-body: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI",
-    Tahoma, Arial, sans-serif;
-  --font-display: -apple-system, BlinkMacSystemFont, "SF Pro Display",
-    "Segoe UI", Tahoma, Arial, sans-serif;
+    0 1px 2px rgba(15, 23, 42, 0.04),
+    0 12px 32px rgba(15, 23, 42, 0.07);
+  --font-body: -apple-system, BlinkMacSystemFont, "Segoe UI", Tahoma, Arial,
+    sans-serif;
+  --font-display: -apple-system, BlinkMacSystemFont, "Segoe UI", Tahoma,
+    Arial, sans-serif;
 }
 
 * {
@@ -25,9 +30,10 @@
 
 html {
   background:
-    radial-gradient(circle at top right, rgba(0, 113, 227, 0.08), transparent 30%),
-    radial-gradient(circle at bottom left, rgba(17, 17, 19, 0.05), transparent 32%),
-    linear-gradient(180deg, #fbfbfd 0%, #f4f4f7 100%);
+    radial-gradient(circle at 92% 4%, rgba(8, 102, 255, 0.08), transparent 25rem),
+    radial-gradient(circle at 4% 38%, rgba(242, 140, 40, 0.07), transparent 24rem),
+    linear-gradient(180deg, #f8faff 0%, var(--bg) 36rem);
+  background-attachment: fixed;
   min-height: 100%;
 }
 
@@ -39,6 +45,7 @@ body {
   min-height: 100vh;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
+  background: transparent;
 }
 
 body,
@@ -56,11 +63,22 @@ a {
 }
 
 ::selection {
-  background: rgba(0, 113, 227, 0.14);
+  background: var(--accent-soft);
 }
 
 button {
   cursor: pointer;
+}
+
+button:disabled {
+  cursor: not-allowed;
+}
+
+button,
+a,
+label,
+input {
+  -webkit-tap-highlight-color: transparent;
 }
 
 svg {

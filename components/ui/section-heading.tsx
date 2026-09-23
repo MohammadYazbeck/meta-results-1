@@ -11,7 +11,7 @@ type SectionHeadingProps = {
   action?: ReactNode;
   className?: string;
   description?: ReactNode;
-  eyebrow: string;
+  eyebrow?: string;
   title: ReactNode;
 };
 
@@ -25,13 +25,13 @@ export function SectionHeading({
   return (
     <div
       className={cn(
-        "flex flex-col gap-3 px-5 pt-5 sm:flex-row sm:items-end sm:justify-between sm:px-6 sm:pt-6",
+        "flex flex-col gap-3 px-5 pb-3 pt-5 sm:flex-row sm:items-end sm:justify-between sm:px-6 sm:pt-6",
         className
       )}
     >
       <div className="max-w-2xl">
-        <p className={eyebrowClassName}>{eyebrow}</p>
-        <h2 className="font-display text-[clamp(1.35rem,2vw,2.05rem)] leading-[1.08]  text-ink">
+        {eyebrow ? <p className={eyebrowClassName}>{eyebrow}</p> : null}
+        <h2 className="font-display text-[20px] font-bold leading-tight text-ink">
           {title}
         </h2>
         {description ? (

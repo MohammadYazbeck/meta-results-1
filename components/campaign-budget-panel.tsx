@@ -59,7 +59,7 @@ export function CampaignBudgetPanel({
           </p>
         </form>
 
-        <div className="rounded-[28px] border border-black/[0.05] bg-white/70 p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.85)]">
+        <div className="rounded-[18px] bg-[#f5f7fa] p-4 ring-1 ring-black/[0.035]">
           <div className="mb-3 flex items-center justify-between">
             <span className="text-[11px] font-semibold uppercase text-muted">
               آخر الدفعات
@@ -72,7 +72,7 @@ export function CampaignBudgetPanel({
           <div className="grid gap-3">
             {payments.slice(0, 6).map((payment) => (
               <div
-                className="rounded-[22px] border border-black/[0.05] bg-white/82 px-4 py-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.9)]"
+                className="rounded-2xl bg-surface px-4 py-3 shadow-sm ring-1 ring-black/[0.035]"
                 key={payment.id}
               >
                 <strong className="font-display text-[15px] font-medium  text-ink">
