@@ -1,5 +1,10 @@
 import type { FinancialSettingsSnapshot } from "@/lib/financial-settings-store";
-import type { CampaignDailySpend, CampaignSpend } from "@/lib/meta";
+import type {
+  CampaignDailySpend,
+  CampaignDetailData,
+  CampaignSpend,
+  MetricTotals,
+} from "@/lib/meta";
 
 function roundCurrency(value: number) {
   return Math.round(value * 100) / 100;
@@ -95,4 +100,36 @@ export function applyFinancialSettingsToCampaignDaily(
       settings,
     ),
   }));
+}
+
+function applyRateToMetricTotals<T extends MetricTotals>(
+  totals: T,
+  campaignId: string,
+  settings: FinancialSettingsSnapshot,
+): T {
+  return {
+    ...totals,
+    cpm: convertDashboardSpend(totals.cpm, campaignId, settings),
+    spend: convertDashboardSpend(totals.spend, campaignId, settings),
+  };
+}
+
+export function applyFinancialSettingsToCampaignDetail(
+  campaign: CampaignDetailData,
+  settings: FinancialSettingsSnapshot,
+): CampaignDetailData {
+  return {
+    ...campaign,
+    adSets: campaign.adSets.map((adSet) => ({
+      ...applyRateToMetricTotals(adSet, campaign.campaignId, settings),
+      ads: adSet.ads.map((ad) =>
+        applyRateToMetricTotals(ad, campaign.campaignId, settings),
+      ),
+    })),
+    totals: applyRateToMetricTotals(
+      campaign.totals,
+      campaign.campaignId,
+      settings,
+    ),
+  };
 }

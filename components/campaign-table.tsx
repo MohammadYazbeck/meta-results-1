@@ -540,11 +540,7 @@ export function CampaignTable({
                 />
                 <MobileMetric
                   danger={remaining < 0}
-                  label={
-                    remaining < 0 && addOnPercent > 0
-                      ? `المتبقي بعد إضافة ${addOnPercent}%`
-                      : "المتبقي"
-                  }
+                  label="المتبقي"
                   value={formatDisplayCurrency(remaining)}
                 />
                 <MobileMetric
@@ -626,11 +622,6 @@ export function CampaignTable({
                     )}
                   >
                     {formatDisplayCurrency(remaining)}
-                    {remaining < 0 && addOnPercent > 0 ? (
-                      <span className="mt-1 block text-[10px] font-semibold text-danger/75">
-                        +{addOnPercent}% إضافة
-                      </span>
-                    ) : null}
                   </td>
                   <td className="bg-[#f7f9fc] px-4 py-4 font-display text-[15px] font-medium text-ink transition-colors group-hover:bg-[#fff8ef]">
                     {formatDisplayCurrency(campaign.spendInRange)}

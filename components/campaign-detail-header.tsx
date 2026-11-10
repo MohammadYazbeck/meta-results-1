@@ -202,7 +202,7 @@ export function CampaignDetailHeader({
             <strong className={cn("mt-3 block font-display text-[clamp(2.7rem,10vw,5rem)] font-black leading-none tabular-nums", wallet < 0 ? "text-[#ff5a00]" : "text-[#0866ff]")} dir="ltr">
               {formatDisplayCurrency(wallet)}
             </strong>
-            <p className="mt-4 text-[13px] leading-7 text-muted sm:text-sm">إجمالي المدفوع ناقص إجمالي المصروف منذ بداية الحملة وحتى اليوم.</p>
+            <p className="mt-4 text-[13px] leading-7 text-muted sm:text-sm">الرصيد الحالي للحملة محسوب حتى اليوم.</p>
           </div>
           <span className="mr-auto mt-5 inline-flex h-16 w-16 items-center justify-center rounded-full bg-[#fff0e7] text-[#ff5a00] lg:mr-0 lg:mt-0 lg:h-20 lg:w-20">
             <MetricIcon name="wallet" />

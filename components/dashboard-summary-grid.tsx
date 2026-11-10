@@ -110,14 +110,14 @@ export function DashboardSummaryGrid({
       />
       <SummaryCard
         eyebrow="المتبقي"
-        text="مجموع أرصدة الحملات بعد تطبيق الإضافة على الأرصدة السالبة."
+        text="مجموع الرصيد الحالي لجميع الحملات غير المؤرشفة."
         tone="orange"
         value={formatDisplayCurrency(remaining)}
       />
       <SummaryCard
         danger={negativeRemaining < 0}
         eyebrow="المتبقي السالب"
-        text="مجموع الأرصدة السالبة بعد تطبيق الإضافة العامة أو الفردية."
+        text="مجموع الحملات التي متبقيها أقل من صفر."
         tone={negativeRemaining < 0 ? "red" : "neutral"}
         value={formatDisplayCurrency(negativeRemaining)}
       />

@@ -9,6 +9,12 @@ import { getCampaignAdStopAccess } from "@/lib/ad-stop-access-store";
 import { isAdminAuthenticated } from "@/lib/admin-auth";
 import { getCampaignBudget } from "@/lib/budget-store";
 import {
+  applyFinancialSettingsToCampaignDetail,
+  getAdjustedRemaining,
+  resolveCampaignFinancialSettings,
+} from "@/lib/financial-calculations";
+import { getFinancialSettings } from "@/lib/financial-settings-store";
+import {
   getCampaignDetailData,
   getEmptyCampaignDetailData,
   getSuggestedRangeLabel,
@@ -33,16 +39,13 @@ type PageProps = {
   params: Promise<{ campaignId: string }>;
 };
 
-function buildWallet(totalPaid: number, totalSpent: number) {
-  return Math.round((totalPaid - totalSpent) * 100) / 100;
-}
-
 export default async function CampaignDetailPage({ params }: PageProps) {
   const { campaignId } = await params;
-  const [isAdmin, budgetRecord, stopAccess] = await Promise.all([
+  const [isAdmin, budgetRecord, stopAccess, financialSettings] = await Promise.all([
     isAdminAuthenticated(),
     getCampaignBudget(campaignId),
     getCampaignAdStopAccess(campaignId),
+    getFinancialSettings(),
   ]);
   let errorMessage: string | null = null;
   let campaign: CampaignDetailData;
@@ -57,8 +60,17 @@ export default async function CampaignDetailPage({ params }: PageProps) {
     campaign = getEmptyCampaignDetailData(campaignId);
   }
 
+  campaign = applyFinancialSettingsToCampaignDetail(campaign, financialSettings);
   const totalPaid = budgetRecord.totalPaid ?? 0;
-  const wallet = buildWallet(totalPaid, campaign.totals.spend);
+  const { negativeBalanceAddOnPercent } = resolveCampaignFinancialSettings(
+    financialSettings,
+    campaignId,
+  );
+  const wallet = getAdjustedRemaining(
+    totalPaid,
+    campaign.totals.spend,
+    negativeBalanceAddOnPercent,
+  );
   const rangeLabel = getSuggestedRangeLabel(campaign.range);
   const totalAds = campaign.adSets.reduce(
     (sum, adSet) => sum + adSet.ads.length,
