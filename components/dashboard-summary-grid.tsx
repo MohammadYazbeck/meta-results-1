@@ -93,7 +93,7 @@ export function DashboardSummaryGrid({
     <section className="mb-6 grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
       <SummaryCard
         eyebrow="إجمالي المصروف"
-        text={`عبر ${summary.totalCampaigns} حملة منذ بداية الحملات.`}
+        text={`عبر ${summary.totalCampaigns} حملة وفق أسعار الصرف المحفوظة.`}
         tone="blue"
         value={formatDisplayCurrency(summary.totalSpend)}
       />
@@ -110,14 +110,14 @@ export function DashboardSummaryGrid({
       />
       <SummaryCard
         eyebrow="المتبقي"
-        text="إجمالي المدفوع ناقص إجمالي المصروف."
+        text="مجموع أرصدة الحملات بعد تطبيق الإضافة على الأرصدة السالبة."
         tone="orange"
         value={formatDisplayCurrency(remaining)}
       />
       <SummaryCard
         danger={negativeRemaining < 0}
         eyebrow="المتبقي السالب"
-        text="مجموع الحملات التي متبقيها أقل من صفر."
+        text="مجموع الأرصدة السالبة بعد تطبيق الإضافة العامة أو الفردية."
         tone={negativeRemaining < 0 ? "red" : "neutral"}
         value={formatDisplayCurrency(negativeRemaining)}
       />

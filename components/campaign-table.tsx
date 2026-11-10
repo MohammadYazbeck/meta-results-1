@@ -13,6 +13,7 @@ import {
 
 import type { CampaignBudgetRecord } from "@/lib/budget-store";
 import { formatDisplayCurrency } from "@/lib/currency";
+import { getAdjustedRemaining } from "@/lib/financial-calculations";
 import type { CampaignSpend, DateRange } from "@/lib/meta";
 
 import { SectionHeading } from "@/components/ui/section-heading";
@@ -20,6 +21,7 @@ import { cn } from "@/lib/utils";
 
 type CampaignTableProps = {
   actionPath?: "/" | "/archive";
+  addOnPercentages?: Record<string, number>;
   archivedCount?: number;
   budgets: Record<string, CampaignBudgetRecord>;
   campaigns: CampaignSpend[];
@@ -44,10 +46,6 @@ const archiveButtonClassName =
 
 const searchInputClassName =
   "min-h-12 w-full rounded-2xl border border-transparent bg-[#f2f4f7] py-2 pl-4 pr-11 text-sm text-ink outline-none transition duration-200 placeholder:text-muted/65 hover:bg-[#edf0f4] focus:border-[#0866ff]/20 focus:bg-white focus:ring-4 focus:ring-[#0866ff]/10";
-
-function getRemaining(totalPaid: number, totalSpend: number) {
-  return Math.round((totalPaid - totalSpend) * 100) / 100;
-}
 
 function buildClearHref(actionPath: "/" | "/archive", range: DateRange) {
   const params = new URLSearchParams({
@@ -196,6 +194,7 @@ function MobileMetric({
 
 export function CampaignTable({
   actionPath = "/",
+  addOnPercentages = {},
   archivedCount,
   budgets,
   campaigns,
@@ -245,9 +244,20 @@ export function CampaignTable({
 
     return searchedCampaigns.filter((campaign) => {
       const totalPaid = budgets[campaign.campaignId]?.totalPaid ?? 0;
-      return getRemaining(totalPaid, campaign.totalSpend) < 0;
+      return getAdjustedRemaining(
+        totalPaid,
+        campaign.totalSpend,
+        addOnPercentages[campaign.campaignId] ?? 0,
+      ) < 0;
     });
-  }, [budgets, liveCampaigns, mode, negativeRemainingOnly, normalizedQuery]);
+  }, [
+    addOnPercentages,
+    budgets,
+    liveCampaigns,
+    mode,
+    negativeRemainingOnly,
+    normalizedQuery,
+  ]);
   const resolvedEmptyMessage = normalizedQuery
     ? searchEmptyMessage
     : negativeRemainingOnly && mode === "active"
@@ -491,7 +501,12 @@ export function CampaignTable({
       <div className="grid gap-3 px-4 pb-4 pt-3 md:hidden">
         {visibleCampaigns.map((campaign) => {
           const totalPaid = budgets[campaign.campaignId]?.totalPaid ?? 0;
-          const remaining = getRemaining(totalPaid, campaign.totalSpend);
+          const addOnPercent = addOnPercentages[campaign.campaignId] ?? 0;
+          const remaining = getAdjustedRemaining(
+            totalPaid,
+            campaign.totalSpend,
+            addOnPercent,
+          );
           const isRemoving = removingCampaignIds.has(campaign.campaignId);
 
           return (
@@ -525,7 +540,11 @@ export function CampaignTable({
                 />
                 <MobileMetric
                   danger={remaining < 0}
-                  label="المتبقي"
+                  label={
+                    remaining < 0 && addOnPercent > 0
+                      ? `المتبقي بعد إضافة ${addOnPercent}%`
+                      : "المتبقي"
+                  }
                   value={formatDisplayCurrency(remaining)}
                 />
                 <MobileMetric
@@ -574,7 +593,12 @@ export function CampaignTable({
           <tbody>
             {visibleCampaigns.map((campaign) => {
               const totalPaid = budgets[campaign.campaignId]?.totalPaid ?? 0;
-              const remaining = getRemaining(totalPaid, campaign.totalSpend);
+              const addOnPercent = addOnPercentages[campaign.campaignId] ?? 0;
+              const remaining = getAdjustedRemaining(
+                totalPaid,
+                campaign.totalSpend,
+                addOnPercent,
+              );
               const isRemoving = removingCampaignIds.has(campaign.campaignId);
 
               return (
@@ -602,6 +626,11 @@ export function CampaignTable({
                     )}
                   >
                     {formatDisplayCurrency(remaining)}
+                    {remaining < 0 && addOnPercent > 0 ? (
+                      <span className="mt-1 block text-[10px] font-semibold text-danger/75">
+                        +{addOnPercent}% إضافة
+                      </span>
+                    ) : null}
                   </td>
                   <td className="bg-[#f7f9fc] px-4 py-4 font-display text-[15px] font-medium text-ink transition-colors group-hover:bg-[#fff8ef]">
                     {formatDisplayCurrency(campaign.spendInRange)}

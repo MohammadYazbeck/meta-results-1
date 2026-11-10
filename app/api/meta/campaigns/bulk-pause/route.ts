@@ -4,13 +4,15 @@ import { NextResponse } from "next/server";
 import { isAdminAuthenticated } from "@/lib/admin-auth";
 import { getArchivedCampaigns } from "@/lib/campaign-archive-store";
 import { getAllCampaignBudgets } from "@/lib/budget-store";
+import {
+  applyFinancialSettingsToCampaigns,
+  getAdjustedRemaining,
+  resolveCampaignFinancialSettings,
+} from "@/lib/financial-calculations";
+import { getFinancialSettings } from "@/lib/financial-settings-store";
 import { getSpendDashboardData, pauseCampaign } from "@/lib/meta";
 
 const NEGATIVE_REMAINING_THRESHOLD = -10;
-
-function getRemaining(totalPaid: number, totalSpend: number) {
-  return Math.round((totalPaid - totalSpend) * 100) / 100;
-}
 
 export async function POST() {
   try {
@@ -18,10 +20,11 @@ export async function POST() {
       return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
     }
 
-    const [data, budgets, archivedCampaigns] = await Promise.all([
+    const [data, budgets, archivedCampaigns, financialSettings] = await Promise.all([
       getSpendDashboardData(),
       getAllCampaignBudgets(),
       getArchivedCampaigns(),
+      getFinancialSettings(),
     ]);
 
     if (data.source === "unavailable") {
@@ -34,9 +37,21 @@ export async function POST() {
     }
 
     const archivedCampaignIds = new Set(Object.keys(archivedCampaigns));
-    const eligibleCampaigns = data.campaigns.filter((campaign) => {
+    const adjustedCampaigns = applyFinancialSettingsToCampaigns(
+      data.campaigns,
+      financialSettings,
+    );
+    const eligibleCampaigns = adjustedCampaigns.filter((campaign) => {
       const totalPaid = budgets[campaign.campaignId]?.totalPaid ?? 0;
-      const remaining = getRemaining(totalPaid, campaign.totalSpend);
+      const { negativeBalanceAddOnPercent } = resolveCampaignFinancialSettings(
+        financialSettings,
+        campaign.campaignId,
+      );
+      const remaining = getAdjustedRemaining(
+        totalPaid,
+        campaign.totalSpend,
+        negativeBalanceAddOnPercent,
+      );
 
       return (
         !archivedCampaignIds.has(campaign.campaignId) &&

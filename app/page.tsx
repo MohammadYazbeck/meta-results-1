@@ -1,6 +1,7 @@
 import { CampaignTable } from "@/components/campaign-table";
 import { DashboardSummaryGrid } from "@/components/dashboard-summary-grid";
 import { DateRangeForm } from "@/components/date-range-form";
+import { FinancialSettingsPanel } from "@/components/financial-settings-panel";
 import { HomeHero } from "@/components/home-hero";
 import { SpendChart } from "@/components/spend-chart";
 import { ErrorPanel } from "@/components/ui/error-panel";
@@ -8,6 +9,16 @@ import { PageScene } from "@/components/ui/page-scene";
 import { getAllCampaignBudgets } from "@/lib/budget-store";
 import { getArchivedCampaigns } from "@/lib/campaign-archive-store";
 import { isAdminAuthenticated } from "@/lib/admin-auth";
+import {
+  applyFinancialSettingsToCampaignDaily,
+  applyFinancialSettingsToCampaigns,
+  getAdjustedRemaining,
+  resolveCampaignFinancialSettings,
+} from "@/lib/financial-calculations";
+import {
+  getFinancialSettings,
+  type FinancialSettingsSnapshot,
+} from "@/lib/financial-settings-store";
 import {
   getEmptySpendDashboardData,
   getDefaultDateRange,
@@ -92,13 +103,46 @@ function getBudgetTotalForCampaigns(
 function getNegativeRemainingTotalForCampaigns(
   budgets: Awaited<ReturnType<typeof getAllCampaignBudgets>>,
   campaigns: SpendDashboardData["campaigns"],
+  settings: FinancialSettingsSnapshot,
 ) {
   const total = campaigns.reduce((sum, campaign) => {
     const totalPaid = budgets[campaign.campaignId]?.totalPaid ?? 0;
-    const remaining =
-      Math.round((totalPaid - campaign.totalSpend) * 100) / 100;
+    const { negativeBalanceAddOnPercent } = resolveCampaignFinancialSettings(
+      settings,
+      campaign.campaignId,
+    );
+    const remaining = getAdjustedRemaining(
+      totalPaid,
+      campaign.totalSpend,
+      negativeBalanceAddOnPercent,
+    );
 
     return remaining < 0 ? sum + remaining : sum;
+  }, 0);
+
+  return Math.round(total * 100) / 100;
+}
+
+function getRemainingTotalForCampaigns(
+  budgets: Awaited<ReturnType<typeof getAllCampaignBudgets>>,
+  campaigns: SpendDashboardData["campaigns"],
+  settings: FinancialSettingsSnapshot,
+) {
+  const total = campaigns.reduce((sum, campaign) => {
+    const totalPaid = budgets[campaign.campaignId]?.totalPaid ?? 0;
+    const { negativeBalanceAddOnPercent } = resolveCampaignFinancialSettings(
+      settings,
+      campaign.campaignId,
+    );
+
+    return (
+      sum +
+      getAdjustedRemaining(
+        totalPaid,
+        campaign.totalSpend,
+        negativeBalanceAddOnPercent,
+      )
+    );
   }, 0);
 
   return Math.round(total * 100) / 100;
@@ -125,15 +169,28 @@ export default async function HomePage({ searchParams }: PageProps) {
     data = getEmptySpendDashboardData(range);
   }
 
-  const budgets = await getAllCampaignBudgets();
-  const archivedCampaigns = await getArchivedCampaigns();
+  const [budgets, archivedCampaigns, financialSettings, isAdmin] =
+    await Promise.all([
+      getAllCampaignBudgets(),
+      getArchivedCampaigns(),
+      getFinancialSettings(),
+      isAdminAuthenticated(),
+    ]);
+  const adjustedCampaigns = applyFinancialSettingsToCampaigns(
+    data.campaigns,
+    financialSettings,
+  );
+  const adjustedCampaignDaily = applyFinancialSettingsToCampaignDaily(
+    data.campaignDaily,
+    financialSettings,
+  );
   const archivedCampaignIds = new Set(Object.keys(archivedCampaigns));
-  const activeCampaigns = data.campaigns.filter(
+  const activeCampaigns = adjustedCampaigns.filter(
     (campaign) => !archivedCampaignIds.has(campaign.campaignId),
   );
   const visibleDaily = buildVisibleDailySpend(
     data.daily,
-    data.campaignDaily,
+    adjustedCampaignDaily,
     activeCampaigns,
   );
   const visibleSummary = buildVisibleSummary(
@@ -142,12 +199,23 @@ export default async function HomePage({ searchParams }: PageProps) {
     visibleDaily,
   );
   const totalPaid = getBudgetTotalForCampaigns(budgets, activeCampaigns);
-  const remaining = Math.round((totalPaid - visibleSummary.totalSpend) * 100) / 100;
+  const remaining = getRemainingTotalForCampaigns(
+    budgets,
+    activeCampaigns,
+    financialSettings,
+  );
   const negativeRemaining = getNegativeRemainingTotalForCampaigns(
     budgets,
     activeCampaigns,
+    financialSettings,
   );
-  const isAdmin = await isAdminAuthenticated();
+  const campaignAddOnPercentages = Object.fromEntries(
+    activeCampaigns.map((campaign) => [
+      campaign.campaignId,
+      resolveCampaignFinancialSettings(financialSettings, campaign.campaignId)
+        .negativeBalanceAddOnPercent,
+    ]),
+  );
   const rangeLabel = getSuggestedRangeLabel(data.range);
   const dataUnavailable = data.source === "unavailable";
   const visibleErrorMessage =
@@ -166,6 +234,13 @@ export default async function HomePage({ searchParams }: PageProps) {
         <div className="mb-6">
           <DateRangeForm range={data.range} />
         </div>
+
+        {isAdmin ? (
+          <FinancialSettingsPanel
+            campaigns={activeCampaigns}
+            settings={financialSettings}
+          />
+        ) : null}
 
         {dataUnavailable ? (
           <ErrorPanel
@@ -188,6 +263,7 @@ export default async function HomePage({ searchParams }: PageProps) {
             </section>
 
             <CampaignTable
+              addOnPercentages={campaignAddOnPercentages}
               archivedCount={Object.keys(archivedCampaigns).length}
               budgets={budgets}
               campaigns={activeCampaigns}
